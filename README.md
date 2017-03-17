@@ -1,0 +1,1 @@
+Webservice plugin to create courses from edu-sharing
