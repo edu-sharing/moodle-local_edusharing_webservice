@@ -5,8 +5,8 @@
 	- webservices aktivieren ► Site administration / ► Plugins / ► Web services / ► Mobile
 	- ► Site administration / ► Plugins / ► Web services / ► External services
 		Add ...
-		Add Functions	local_educopu_getcategories
-						local_educopu_restore
+		Add Functions	local_edusharing_getcategories
+						local_edusharing_restore
 	- nutzer anlgen
 	- nutzer für den webservice eintragen ► Site administration / ► Plugins / ► Web services / ► External services / ► Authorised users
 	- token für nutzer / webservice ugenerieren -> in connector eintragen ► Site administration / ► Plugins / ► Web services / ► Manage tokens

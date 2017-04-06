@@ -1,9 +1,9 @@
 <?php
 
 /**
- * educopu external file
+ * edusharing
  *
- * @package    educopu
+ * @package    edusharing
  * @copyright  2017 shippeli
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -14,7 +14,11 @@ require_once($CFG->libdir . "/externallib.php");
 require_once($CFG->libdir . "/coursecatlib.php");
 
 
-class local_educopu_external extends external_api {
+class local_edusharing_external extends external_api {
+
+    public static function gettoken($userid) {
+
+    }
 
     public static function getcategories() {
         $cats = self::getCategoriesRecursively();
@@ -127,7 +131,7 @@ class local_educopu_external extends external_api {
             fclose($handle);    
 
         } catch (Exception $e) {
-            error_log('Error in local_educopu_external::saveFile()');   
+            error_log('Error in local_edusharing_external::saveFile()');
             return false;
         }
         
