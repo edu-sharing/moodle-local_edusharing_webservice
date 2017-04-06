@@ -1,5 +1,9 @@
 <?php
-$private = '-----BEGIN PRIVATE KEY-----
+
+define('CONTENT_URL', 'http://127.0.0.1:8080/edu-sharing/content');
+define('APP_ID', 'mocopu');
+
+define('SSL_PRIVATE', '-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCvJH49pO6mTgBm
 emHDYxuAGzW9htnfXzmYbPH3kbsKljVlGINWL4KZvjS2osO/bvcnHrVRHSCx7h7h
 AgmSsNBKKxzfcG2bRDOzYBzV7h+QP36wNO+DygK+qOWWR6YbOVa4MddAOvxivoFe
@@ -26,9 +30,9 @@ zmP72/sv+fEbSOG8V/BXmtG39JS7Q+9uk1dJPiECgYEAru4/BgxLtAjyCCJyi19p
 tKImK/o7bFfnGTIBDj3U67GjO4SAAjebWzscoNkeYUDi/zDccuFp6AuEKdpnrlxw
 ddmSacwm0vQoEKs5ye4i8XJdE7Oeky4ZYqPZ1vipDt2p7zDPeYVkrRYrSc2atgkz
 7K9sIJPtoRfLMUHVW92jrSM=
------END PRIVATE KEY-----';
+-----END PRIVATE KEY-----');
 
-$public = '-----BEGIN PUBLIC KEY-----
+define('SSL_PUBLIC', '-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryR+PaTupk4AZnphw2Mb
 gBs1vYbZ3185mGzx95G7CpY1ZRiDVi+Cmb40tqLDv273Jx61UR0gse4e4QIJkrDQ
 Sisc33Btm0Qzs2Ac1e4fkD9+sDTvg8oCvqjllkemGzlWuDHXQDr8Yr6BXrtaOZCZ
@@ -36,4 +40,4 @@ Sisc33Btm0Qzs2Ac1e4fkD9+sDTvg8oCvqjllkemGzlWuDHXQDr8Yr6BXrtaOZCZ
 SEUJVXXCJnbwrar+WBRaNKUJ9qDlX4IMZhZLeztyyeO/V6W5d8ucTaOAFYN5vHBG
 p3B9w+7OI/Ybio6XjFoG9ZfZlPOjsoARrkQbDtdG6oF5vdgSKuo2g8Eniu4r9s1D
 YQIDAQAB
------END PUBLIC KEY-----';
+-----END PUBLIC KEY-----');

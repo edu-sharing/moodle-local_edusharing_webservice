@@ -4,17 +4,14 @@
  * educopu external file
  *
  * @package    educopu
- * @copyright  2016 shippeli
+ * @copyright  2017 shippeli
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
- 
+
+require_once("config.php");
 require_once($CFG->libdir . "/externallib.php");
 require_once($CFG->libdir . "/coursecatlib.php");
-
-
-define('CONTENT_URL', 'http://127.0.0.1:8080/edu-sharing/content');
-define('APP_ID', 'mocopu');
 
 
 class local_educopu_external extends external_api {
@@ -105,8 +102,7 @@ class local_educopu_external extends external_api {
         try {       
             $timestamp = round(microtime(true) * 1000);
             $signData = $nodeId . $timestamp;
-            include('keyPair.php');       
-            $pkeyid = openssl_get_privatekey($private);      
+            $pkeyid = openssl_get_privatekey(SSL_PRIVATE);
             openssl_sign($signData, $signature, $pkeyid);
             $signature = urlencode(base64_encode($signature));
             openssl_free_key($pkeyid); 
