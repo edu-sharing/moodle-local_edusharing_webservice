@@ -16,7 +16,55 @@ require_once($CFG->libdir . "/coursecatlib.php");
 
 class local_edusharing_external extends external_api {
 
-    public static function gettoken($userid) {
+    //create user if not exists
+    //enroll user if not enrolled (set appropriate role)
+    //generate login token
+    //return token
+    public static function handleuser($username, $courseid, $editpermission = false) {
+        global $CFG, $DB;
+        $user = $DB->get_record("user", array("username" => $username));
+        if(empty($user))
+            $user = create_user_record($username, uniqid());
+
+        $context = context_course::instance($courseid);
+
+        $roleshortname = 'student';
+        if($editpermission) {
+            $roleshortname = 'editingteacher';
+        }
+        $roleid = $DB->get_field('role', 'id', array('shortname' => $roleshortname));
+
+        if (!is_enrolled($context, $user->id)) {
+            if (!enrol_try_internal_enrol($courseid, $user->id, $roleid, time())) {
+                throw new moodle_exception('unabletoenrolerrormessage', 'langsourcefile');
+            }
+        }
+
+        $token = self::generateToken($user->id, $courseid);
+
+        return $token;
+
+    }
+
+    private static function generateToken($userid, $courseid) {
+
+        $expires = time() + 10;
+        $hash = new stdClass;
+        $hash-> userid = $userid;
+        $hash-> courseid = $expires;
+
+        $hash = json_encode($hash);
+        $hash = self::encrypt($hash);
+        $hash = base64_encode($hash);
+        return $hash;
+
+
+    }
+
+    private function encrypt($data) {
+
+        openssl_get_privatekey(SSL_PRIVATE);
+        openssl_private_encrypt($source,$finaltext,$priv_key);
 
     }
 
