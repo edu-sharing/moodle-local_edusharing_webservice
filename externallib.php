@@ -8,7 +8,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-
 require_once("config.php");
 require_once($CFG->libdir . "/externallib.php");
 require_once($CFG->libdir . "/coursecatlib.php");
@@ -20,7 +19,7 @@ class local_edusharing_external extends external_api {
     //enroll user if not enrolled (set appropriate role)
     //generate login token
     //return token
-    public static function handleuser($username, $courseid, $editpermission = false) {
+    public static function handleuser($username, $courseid, $role) {
         global $CFG, $DB;
         $user = $DB->get_record("user", array("username" => $username));
         if(empty($user))
@@ -29,7 +28,7 @@ class local_edusharing_external extends external_api {
         $context = context_course::instance($courseid);
 
         $roleshortname = 'student';
-        if($editpermission) {
+        if($role == 'editingteacher') {
             $roleshortname = 'editingteacher';
         }
         $roleid = $DB->get_field('role', 'id', array('shortname' => $roleshortname));
@@ -48,24 +47,27 @@ class local_edusharing_external extends external_api {
 
     private static function generateToken($userid, $courseid) {
 
-        $expires = time() + 10;
+        global $DB;
+
         $hash = new stdClass;
-        $hash-> userid = $userid;
-        $hash-> courseid = $expires;
+        $hash -> userid = $userid;
+        $hash -> courseid = $courseid;
+        $hash -> ts = time();
+        $hash -> unique = uniqid();
+
+        $DB->insert_record('edusharingtoken', $hash);
 
         $hash = json_encode($hash);
-        $hash = self::encrypt($hash);
-        $hash = base64_encode($hash);
-        return $hash;
-
-
+        $token = self::encrypt($hash);
+        $token = base64_encode($token);
+        return $token;
     }
 
     private function encrypt($data) {
-
-        openssl_get_privatekey(SSL_PRIVATE);
-        openssl_private_encrypt($source,$finaltext,$priv_key);
-
+        $encrypted = '';
+        $privKey = openssl_get_privatekey(SSL_PRIVATE);
+        openssl_private_encrypt($data,$encrypted,$privKey);
+        return $encrypted;
     }
 
     public static function getcategories() {
