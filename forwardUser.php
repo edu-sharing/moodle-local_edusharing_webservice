@@ -7,9 +7,8 @@ global $DB;
 
 $token = base64_decode($_GET['token']);
 if(empty($token)) {
-    throw new Exception('Missing or invalid token');
+    redirect('../../login/logout.php?sesskey=' . sesskey(), 'Sie haben keine Brechtigung diesen Kurs zu betreten / You are not allowed to access this course (Missing or invalid token)', null, \core\output\notification::NOTIFY_ERROR);
 }
-
 
 $pubkey = openssl_pkey_get_public(SSL_PUBLIC);
 $decrypted = '';
@@ -17,14 +16,14 @@ openssl_public_decrypt($token, $decrypted, $pubkey);
 $decrypted = json_decode($decrypted);
 
 if($DB -> record_exists('edusharingtoken', array('userid' => $decrypted -> userid, 'courseid' => $decrypted-> courseid, 'ts' => $decrypted-> ts, 'uniqid' => $decrypted -> uniqid))) {
-    //delete record and forward user
+    //delete record and login and forward user
     $DB -> delete_records('edusharingtoken', array('userid' => $decrypted -> userid, 'courseid' => $decrypted-> courseid, 'ts' => $decrypted-> ts, 'uniqid' => $decrypted -> uniqid));
     $user = $DB->get_record("user", array("id" => $decrypted -> userid));
     complete_user_login($user);
     redirect($CFG->wwwroot . '/course/view.php?id=' . $decrypted-> courseid);
     //header('Location: ' . $CFG->wwwroot . '/course/view.php?id=' . $decrypted-> courseid);
 } else {
-    throw new Exception('You are not allowed to access this course');
+    redirect('../../login/logout.php?sesskey=' . sesskey(), 'Sie haben keine Brechtigung diesen Kurs zu betreten / You are not allowed to access this course', null, \core\output\notification::NOTIFY_ERROR);
 }
 
 exit();
