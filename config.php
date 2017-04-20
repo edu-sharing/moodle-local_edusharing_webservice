@@ -1,7 +1,7 @@
 <?php
 
-define('CONTENT_URL', 'http://127.0.0.1:8080/edu-sharing/content');
-define('APP_ID', 'mocopu');
+define('CONTENT_URL', 'https://repository.oer-berlin.de/edu-sharing/content');
+define('APP_ID', 'rendermoodle');
 
 define('SSL_PRIVATE', '-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCvJH49pO6mTgBm

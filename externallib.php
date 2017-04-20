@@ -19,11 +19,16 @@ class local_edusharing_external extends external_api {
     //enroll user if not enrolled (set appropriate role)
     //generate login token
     //return token
-    public static function handleuser($username, $courseid, $role) {
+    public static function handleuser($user_name, $user_givenname, $user_surname, $user_email, $courseid, $role) {
         global $CFG, $DB;
-        $user = $DB->get_record("user", array("username" => $username));
-        if(empty($user))
-            $user = create_user_record($username, uniqid());
+        $user = $DB->get_record("user", array("username" => $user_name));
+        if(empty($user)) {
+            $user = create_user_record($user_name, uniqid());
+            $user -> firstname = $user_givenname;
+            $user -> lastname = $user_surname;
+            $user -> email = $user_email;
+            $DB -> update_record('user', $user);
+        }
 
         $context = context_course::instance($courseid);
 
@@ -50,10 +55,10 @@ class local_edusharing_external extends external_api {
         global $DB;
 
         $hash = new stdClass;
-        $hash -> userid = $userid;
-        $hash -> courseid = $courseid;
+        $hash -> userid = (int)$userid;
+        $hash -> courseid = (int)$courseid;
         $hash -> ts = time();
-        $hash -> unique = uniqid();
+        $hash -> uniqid = uniqid();
 
         $DB->insert_record('edusharingtoken', $hash);
 
@@ -63,7 +68,7 @@ class local_edusharing_external extends external_api {
         return $token;
     }
 
-    private function encrypt($data) {
+    public static function encrypt($data) {
         $encrypted = '';
         $privKey = openssl_get_privatekey(SSL_PRIVATE);
         openssl_private_encrypt($data,$encrypted,$privKey);
@@ -120,7 +125,7 @@ class local_edusharing_external extends external_api {
         $updCourse = array('id' => $courseId, 'fullname' => $title, 'shortname' => $title);
         $DB->update_record('course', $updCourse, $bulk = false);
         
-        return json_encode(array('id' => $courseId));
+        return $courseId;
     } 
     
     public static function prepareCourse($nodeId) {
@@ -207,6 +212,29 @@ class local_edusharing_external extends external_api {
      */
     public static function restore_returns() {
         return new external_value(PARAM_TEXT, 'course id');
+    }
+
+      /**
+     * Returns description of method parameters
+     * @return external_function_parameters
+     */
+      public static function handleuser_parameters() {
+        return new external_function_parameters(array(
+            'user_name' => new external_value(PARAM_TEXT, 'username to create / enrol / login'),
+            'user_givenname' => new external_value(PARAM_TEXT, 'user_givenname'),
+            'user_surname' => new external_value(PARAM_TEXT, 'user_surname'),
+            'user_email' => new external_value(PARAM_TEXT, 'user_email'),
+            'courseid' => new external_value(PARAM_INT, 'course id'),
+            'role' => new external_value(PARAM_TEXT, 'role for enrolement')
+        ));
+    }
+      
+          /**
+     * Returns description of method result value
+     * @return external_description
+     */
+    public static function handleuser_returns() {
+        return new external_value(PARAM_TEXT, 'token');
     }
     
         /**

@@ -19,7 +19,7 @@ $functions = array(
     ),
     'local_edusharing_handleuser' => array( // local_PLUGINNAME_FUNCTIONNAME is the name of the web service function that the client will call.
         'classname'   => 'local_edusharing_external', // create this class in local/PLUGINNAME/externallib.php
-        'methodname'  => 'gettoken', // implement this function into the above class
+        'methodname'  => 'handleuser', // implement this function into the above class
         'classpath'   => 'local/edusharing/externallib.php',
         'description' => 'tba',
         'type'        => 'write', // the value is 'write' if your function does any database change, otherwise it is 'read'.
