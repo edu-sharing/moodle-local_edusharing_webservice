@@ -1,6 +1,6 @@
 - lokales plugin installieren (dir umbenennen in edusharing)
-- anpassung key.php
-- anpassung externallib.php -> und im repo regostrieren
+- anpassung config.php
+(- anpassung externallib.php -> und) im repo regostrieren
 - webservice in moodle einrichten
 	- webservices aktivieren ► Site administration / ► Plugins / ► Web services / ► Mobile
 	- ► Site administration / ► Plugins / ► Web services / ► External services
