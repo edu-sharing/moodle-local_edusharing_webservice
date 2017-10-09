@@ -211,7 +211,7 @@ class local_edusharing_external extends external_api {
      * @return external_description
      */
     public static function restore_returns() {
-        return new external_value(PARAM_TEXT, 'course id');
+        return new external_value(PARAM_INT, 'course id');
     }
 
       /**

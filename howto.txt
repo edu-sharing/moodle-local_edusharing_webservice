@@ -1,16 +1,14 @@
 - lokales plugin installieren (dir umbenennen in edusharing)
 - anpassung config.php
-(- anpassung externallib.php -> und) im repo regostrieren
+- im repo regostrieren (zum content abholen)
 - webservice in moodle einrichten
-	- webservices aktivieren ► Site administration / ► Plugins / ► Web services / ► Mobile
 	- ► Site administration / ► Plugins / ► Web services / ► External services
 		Add ...
 		Add Functions	local_edusharing_getcategories
 						local_edusharing_restore
-	- nutzer anlgen
+						handle
+	- nutzer anlegen
 	- nutzer für den webservice eintragen ► Site administration / ► Plugins / ► Web services / ► External services / ► Authorised users
 	- token für nutzer / webservice ugenerieren -> in connector eintragen ► Site administration / ► Plugins / ► Web services / ► Manage tokens
 	- rolle / rechte zuweisen ► Site administration / ► Users / ► Permissions / ► Define roles (Nutzer muss $DB -> get_records() ausführen dürfen, außerdem Kurse anlegen, Kategorien abfragen, ...)
-	
-	
-client sendet anfrage mit nodeId an connector.
+
