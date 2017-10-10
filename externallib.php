@@ -156,9 +156,8 @@ class local_edusharing_external extends external_api {
         
         $savePath = $CFG -> dataroot . '/temp/backup/' .$path;
 
-        mkdir($savePath, 0744);
-            
-        try {       
+        try {
+            mkdir($savePath, 0744);
             $timestamp = round(microtime(true) * 1000);
             $signData = $nodeId . $timestamp;
             $pkeyid = openssl_get_privatekey(SSL_PRIVATE);
@@ -179,6 +178,7 @@ class local_edusharing_external extends external_api {
             fclose($handle);
             if($content === false) {
                 error_log('Error fetching content.');
+                return false;
             }
             
             $handle = fopen($savePath . '/course.zip', "wb");

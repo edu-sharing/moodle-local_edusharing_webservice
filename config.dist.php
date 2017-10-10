@@ -1,8 +1,11 @@
 <?php
 
-define('CONTENT_URL', 'https://repository.oer-berlin.de/edu-sharing/content');
+define('CONTENT_URL', 'https://edurepository.org/edu-sharing/content');
 define('APP_ID', 'rendermoodle');
 
+/*
+ * Generate your own key pair! This is just for testing and should not be used in productive environments.
+ */
 define('SSL_PRIVATE', '-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCvJH49pO6mTgBm
 emHDYxuAGzW9htnfXzmYbPH3kbsKljVlGINWL4KZvjS2osO/bvcnHrVRHSCx7h7h
