@@ -79,7 +79,7 @@ class local_edusharing_external extends external_api {
         $cats = self::getCategoriesRecursively();
         return json_encode($cats);
     }
-    
+
     private static function getCategoriesRecursively($id = 0) {
         foreach(coursecat::get($id) -> get_children() as $id => $cat) {
             $catArray[$id] = $cat -> getIterator() -> getArrayCopy();
@@ -87,83 +87,93 @@ class local_edusharing_external extends external_api {
         }
         return $catArray;
     }
-    
-    
+
+
     private static function restoreCourse($path, $categoryId, $title) {
         global $CFG, $DB;
-         
+
         require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
 
         // Transaction.
         $transaction = $DB -> start_delegated_transaction();
         // Create new course.
-        $folder  = $path; // as found in: $CFG->dataroot . '/temp/backup/' 
+        $folder  = $path; // as found in: $CFG->dataroot . '/temp/backup/'
         $categoryid = $categoryId;
         $userdoingrestore = 2; // e.g. 2 == admin
         $courseid = restore_dbops::create_new_course('', '', $categoryid);
-         
+
         // Restore backup into course.
-        $controller = new restore_controller($folder, $courseid, 
-                backup::INTERACTIVE_NO, backup::MODE_GENERAL, $userdoingrestore,
-                backup::TARGET_NEW_COURSE);
+        $controller = new restore_controller($folder, $courseid,
+            backup::INTERACTIVE_NO, backup::MODE_GENERAL, $userdoingrestore,
+            backup::TARGET_NEW_COURSE);
         $controller->execute_precheck();
         $controller->execute_plan();
-         
+
         // Commit.
-        $transaction->allow_commit(); 
-        
+        $transaction->allow_commit();
         return $courseid;
     }
-    
-    
+
+
     public static function restore($nodeId, $categoryId, $title) {
         global $CFG, $DB;
         $path = self::prepareCourse($nodeId);
         $courseId = self::restoreCourse($path, $categoryId, $title);
         $course = $DB -> get_record('course', array('id' => $courseId));
-        
+
         $updCourse = array('id' => $courseId, 'fullname' => $title, 'shortname' => $title);
         $DB->update_record('course', $updCourse, $bulk = false);
-        
-        return $courseId;
-    } 
-    
+        error_log('############ ' . $courseId);
+        return json_encode($courseId);
+    }
+
     public static function prepareCourse($nodeId) {
         $path = uniqid();
         self::saveFile($path, $nodeId);
-        self::unzipFile($path);
+        self::unpackFile($path);
         return $path;
     }
-    
-    public static function unzipFile($path) {
+
+    public function unpackFile($path) {
+
         global $CFG;
-        
+
         $coursePath = $CFG -> dataroot . '/temp/backup/' .$path;
-        
-        $zip = new ZipArchive;
-        $res = $zip -> open($coursePath . '/course.zip');
-        if ($res === TRUE) {
-          $zip -> extractTo($coursePath);
-          $zip -> close();
-        } else {
-          error_log('Error unzip');
+        try {
+            $zip = new ZipArchive;
+            $res = $zip -> open($coursePath . '/course.mbz');
+            if ($res === TRUE) {
+                $zip -> extractTo($coursePath);
+                $zip -> close();
+            } else {
+                // decompress from gz
+                $p = new PharData($coursePath . '/course.mbz');
+                $p -> decompress();
+                // unarchive from the tar
+                $phar = new PharData($coursePath . '/course.tar');
+                $phar -> extractTo($coursePath);
+            }
+        } catch(Exception $e) {
+            error_log('Error unpacking course');
         }
     }
-    
+
+
     public static function saveFile($path, $nodeId) {
 
         global $CFG;
-        
+
         $savePath = $CFG -> dataroot . '/temp/backup/' .$path;
 
+        mkdir($savePath, 0744);
+
         try {
-            mkdir($savePath, 0744);
             $timestamp = round(microtime(true) * 1000);
             $signData = $nodeId . $timestamp;
             $pkeyid = openssl_get_privatekey(SSL_PRIVATE);
             openssl_sign($signData, $signature, $pkeyid);
             $signature = urlencode(base64_encode($signature));
-            openssl_free_key($pkeyid); 
+            openssl_free_key($pkeyid);
             $contentUrl = CONTENT_URL;
             $contentUrl .= '?appId=' . APP_ID;
             $contentUrl .= '&nodeId=' . $nodeId;
@@ -178,35 +188,34 @@ class local_edusharing_external extends external_api {
             fclose($handle);
             if($content === false) {
                 error_log('Error fetching content.');
-                return false;
             }
-            
-            $handle = fopen($savePath . '/course.zip', "wb");
+
+            $handle = fopen($savePath . '/course.mbz', "wb");
             fwrite($handle, $content);
-            fclose($handle);    
+            fclose($handle);
 
         } catch (Exception $e) {
             error_log('Error in local_edusharing_external::saveFile()');
             return false;
         }
-        
+
         return true;
     }
 
-    
-       /**
+
+    /**
      * Returns description of method parameters
      * @return external_function_parameters
      */
-      public static function restore_parameters() {
+    public static function restore_parameters() {
         return new external_function_parameters(array(
             'nodeid' => new external_value(PARAM_TEXT, 'node ID of course file in repository'),
             'category' => new external_value(PARAM_INT, 'category id to restore course'),
             'title' => new external_value(PARAM_TEXT, 'name for course')
         ));
     }
-      
-          /**
+
+    /**
      * Returns description of method result value
      * @return external_description
      */
@@ -214,11 +223,11 @@ class local_edusharing_external extends external_api {
         return new external_value(PARAM_INT, 'course id');
     }
 
-      /**
+    /**
      * Returns description of method parameters
      * @return external_function_parameters
      */
-      public static function handleuser_parameters() {
+    public static function handleuser_parameters() {
         return new external_function_parameters(array(
             'user_name' => new external_value(PARAM_TEXT, 'username to create / enrol / login'),
             'user_givenname' => new external_value(PARAM_TEXT, 'user_givenname'),
@@ -228,31 +237,31 @@ class local_edusharing_external extends external_api {
             'role' => new external_value(PARAM_TEXT, 'role for enrolement')
         ));
     }
-      
-          /**
+
+    /**
      * Returns description of method result value
      * @return external_description
      */
     public static function handleuser_returns() {
         return new external_value(PARAM_TEXT, 'token');
     }
-    
-        /**
+
+    /**
      * Returns description of method parameters
      * @return external_function_parameters
      */
-      public static function getcategories_parameters() {
+    public static function getcategories_parameters() {
         return new external_function_parameters(array());
     }
-      
-          /**
+
+    /**
      * Returns description of method result value
      * @return external_description
      */
     public static function getcategories_returns() {
         return new external_value(PARAM_TEXT, 'category tree in json format');
     }
-    
-    
+
+
 }
 
