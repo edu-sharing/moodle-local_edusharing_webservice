@@ -11,12 +11,12 @@ Setup
 2. Rename config.dist.php to config.php and set up constants
 3. Register application in your edu-sharing repository (do this manually or fetch properties from moodle/local/edusharing/metadata.php)
 4. Setup the Webservice in Moodle
-    1. Add external service
-    2. Add webservice functions
-    3. Create webservice user
-    4. Assign webservice functions
-    5. Generate user webservice token
-    6. Grant privilieges for required functions
+    - Add external service
+    - Add webservice functions
+    - Create webservice user
+    - Assign webservice functions
+    - Generate user webservice token
+    - Grant privilieges for required functions
 5. Setup config.php in the rendering service moodle module. Use the generated token.
 
 Todo
