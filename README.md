@@ -5,6 +5,8 @@ This local plugin provides a REST interface to
 - create and enrol edu-sharing users to a course
 - login edu-sharing users to view a course
 
+HINT: Disable "Include enrolled users" in Moodle backup dialog. It can cause problems while restoreing and it brings no advantage in our context.
+
 Setup
 -----
 1. Install this plugin to moodle/local (rename folder to edusharing)
