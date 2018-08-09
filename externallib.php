@@ -180,7 +180,10 @@ class local_edusharing_external extends external_api {
             $contentUrl .= '&timeStamp=' . $timestamp;
             $contentUrl .= '&authToken=' . $signature;
 
-            $handle = fopen($contentUrl, "rb");
+
+	    $opts=array("ssl"=>array("verify_peer"=>false,"verify_peer_name"=>false)); 
+
+            $handle = fopen($contentUrl, "rb", false, stream_context_create($opts));
             if($handle === false) {
                 error_log('Error opening ' . $contentUrl);
             }
