@@ -127,6 +127,97 @@ class local_edusharing_external extends external_api {
         return json_encode($courseId);
     }
 
+    public static function scorm($nodeId, $categoryId, $title) {
+        global $CFG, $DB;
+        $data = new stdClass();
+        $data->category = $categoryId;
+        $data->fullname = $title;
+        $data->shortname = $title;
+        $data->format= 'singleactivity';
+        $data->activitytype = 'scorm';
+        $course = create_course($data);
+
+        set_config('allowtypelocalsync', 1, 'scorm');
+        $scormm_module_id = $DB->get_field('modules', 'id', array('name'  => 'scorm'));
+
+        $timestamp = round(microtime(true) * 1000);
+        $signData = $nodeId . $timestamp;
+        $pkeyid = openssl_get_privatekey(SSL_PRIVATE);
+        openssl_sign($signData, $signature, $pkeyid);
+        $signature = urlencode(base64_encode($signature));
+        openssl_free_key($pkeyid);
+        $contentUrl = CONTENT_URL;
+        $contentUrl .= '?appId=' . APP_ID;
+        $contentUrl .= '&nodeId=' . $nodeId;
+        $contentUrl .= '&timeStamp=' . $timestamp;
+        $contentUrl .= '&authToken=' . $signature;
+
+        $scormdata = new stdClass();
+        $scormdata->scormtype = SCORM_TYPE_LOCALSYNC;
+        $scormdata->packageurl = $contentUrl;
+        $scormdata->intro = 'scorm';
+        $scormdata->datadir = '';
+        $scormdata->pkgtype = '';
+        $scormdata->launch = '';
+        $scormdata->redirect = 'yes';
+        $scormdata->redirecturl = '../course/view.php?id=' . $course->id;
+        $scormdata->completionunlocked = '1';
+        $scormdata->course = $course->id;
+        $scormdata->section = 0;
+        $scormdata->module = $scormm_module_id;
+        $scormdata->modulename = 'scorm';
+        $scormdata->instance = '';
+        $scormdata->return = '0';
+        $scormdata->sr = '0';
+        $scormdata->mform_showmore_id_displaysettings = '0';
+        $scormdata->mform_isexpanded_id_general = '1';
+        $scormdata->mform_isexpanded_id_displaysettings = '0';
+        $scormdata->mform_isexpanded_id_availability = '0';
+        $scormdata->mform_isexpanded_id_gradesettings = '0';
+        $scormdata->mform_isexpanded_id_attemptsmanagementhdr = '0';
+        $scormdata->mform_isexpanded_id_compatibilitysettingshdr = '0';
+        $scormdata->mform_isexpanded_id_modstandardelshdr = '0';
+        $scormdata->mform_isexpanded_id_availabilityconditionsheader = '0';
+        $scormdata->mform_isexpanded_id_activitycompletionheader = '0';
+        $scormdata->mform_isexpanded_id_tagshdr = '0';
+        $scormdata->mform_isexpanded_id_competenciessection = '0';
+        $scormdata->updatefreq = '0';
+        $scormdata->popup = '0';
+        $scormdata->displayactivityname = '0';
+        $scormdata->displayactivityname = '1';
+        $scormdata->skipview = '0';
+        $scormdata->hidebrowse = '0';
+        $scormdata->displaycoursestructure = '0';
+        $scormdata->hidetoc = '0';
+        $scormdata->nav = '1';
+        $scormdata->displayattemptstatus = '1';
+        $scormdata->grademethod = '1';
+        $scormdata->maxgrade = '100';
+        $scormdata->maxattempt = '0';
+        $scormdata->whatgrade = '0';
+        $scormdata->forcenewattempt = '0';
+        $scormdata->lastattemptlock = '0';
+        $scormdata->forcecompleted = '0';
+        $scormdata->auto = '0';
+        $scormdata->autocommit = '0';
+        $scormdata->masteryoverride = '1';
+        $scormdata->visible = '1';
+        $scormdata->cmidnumber = '';
+        $scormdata->groupmode = '0';
+        $scormdata->completion = '1';
+        $scormdata->competency_rule = '0';
+        $scormdata->name = $title;
+        $scormdata->add = 'scorm';
+        $scormdata->visible = 1;
+        $scormdata->availablefrom = 0;
+        $scormdata->availableuntil = 0;
+        $scormdata->showavailability = 1;
+
+        add_moduleinfo($scormdata, $course);
+
+        return json_encode($course->id);
+    }
+
     public static function prepareCourse($nodeId) {
         $path = uniqid();
         self::saveFile($path, $nodeId);
@@ -181,7 +272,7 @@ class local_edusharing_external extends external_api {
             $contentUrl .= '&authToken=' . $signature;
 
 
-	    $opts=array("ssl"=>array("verify_peer"=>false,"verify_peer_name"=>false)); 
+	        $opts=array("ssl"=>array("verify_peer"=>false,"verify_peer_name"=>false));
 
             $handle = fopen($contentUrl, "rb", false, stream_context_create($opts));
             if($handle === false) {
@@ -223,6 +314,26 @@ class local_edusharing_external extends external_api {
      * @return external_description
      */
     public static function restore_returns() {
+        return new external_value(PARAM_INT, 'course id');
+    }
+
+    /**
+     * Returns description of method parameters
+     * @return external_function_parameters
+     */
+    public static function scorm_parameters() {
+        return new external_function_parameters(array(
+            'nodeid' => new external_value(PARAM_TEXT, 'node ID of course file in repository'),
+            'category' => new external_value(PARAM_INT, 'category id to restore course'),
+            'title' => new external_value(PARAM_TEXT, 'name for course')
+        ));
+    }
+
+    /**
+     * Returns description of method result value
+     * @return external_description
+     */
+    public static function scorm_returns() {
         return new external_value(PARAM_INT, 'course id');
     }
 
