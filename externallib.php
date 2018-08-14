@@ -215,6 +215,8 @@ class local_edusharing_external extends external_api {
         $scormdata->availablefrom = 0;
         $scormdata->availableuntil = 0;
         $scormdata->showavailability = 1;
+        $scormdata->width = 100;
+        $scormdata->height = 100;
 
         add_moduleinfo($scormdata, $course);
 
