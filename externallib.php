@@ -11,6 +11,9 @@
 require_once("config.php");
 require_once($CFG->libdir . "/externallib.php");
 require_once($CFG->libdir . "/coursecatlib.php");
+require_once ($CFG->dirroot . '/course/lib.php');
+require_once ($CFG->dirroot . '/course/modlib.php');
+require_once ($CFG->dirroot . '/mod/scorm/lib.php');
 
 
 class local_edusharing_external extends external_api {
