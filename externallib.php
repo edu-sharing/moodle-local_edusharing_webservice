@@ -131,17 +131,20 @@ class local_edusharing_external extends external_api {
     }
 
     public static function scorm($nodeId, $categoryId, $title) {
+
+        $unique = uniqid();
+
         global $CFG, $DB;
         $data = new stdClass();
         $data->category = $categoryId;
-        $data->fullname = $title;
-        $data->shortname = $title;
+        $data->fullname = $title . '_' . $unique;
+        $data->shortname = $title . '_' . $unique;
         $data->format= 'singleactivity';
         $data->activitytype = 'scorm';
         $course = create_course($data);
 
         set_config('allowtypelocalsync', 1, 'scorm');
-        $scormm_module_id = $DB->get_field('modules', 'id', array('name'  => 'scorm'));
+        $scorm_module_id = $DB->get_field('modules', 'id', array('name'  => 'scorm'));
 
         $timestamp = round(microtime(true) * 1000);
         $signData = $nodeId . $timestamp;
@@ -167,7 +170,7 @@ class local_edusharing_external extends external_api {
         $scormdata->completionunlocked = '1';
         $scormdata->course = $course->id;
         $scormdata->section = 0;
-        $scormdata->module = $scormm_module_id;
+        $scormdata->module = $scorm_module_id;
         $scormdata->modulename = 'scorm';
         $scormdata->instance = '';
         $scormdata->return = '0';
@@ -220,7 +223,7 @@ class local_edusharing_external extends external_api {
 
         add_moduleinfo($scormdata, $course);
 
-        return json_encode($course->id);
+        return json_encode((int)$course->id);
     }
 
     public static function prepareCourse($nodeId) {
