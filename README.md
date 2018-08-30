@@ -1,7 +1,8 @@
-Webservice plugin to render moodle courses from edu-sharing
+Webservice plugin to render moodle courses & SCORM packages from edu-sharing
 =====
 This local plugin provides a REST interface to 
 - restore Moodle courses from an edu-sharing repository
+- add single activity course and add SCORM package
 - create and enrol edu-sharing users to a course
 - login edu-sharing users to view a course
 
