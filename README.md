@@ -21,6 +21,7 @@ Setup
     - Generate user webservice token
     - Grant privilieges for required functions
 5. Setup config.php in the rendering service moodle module. Use the generated token.
+6. Eventually increase Moodle DB 'max_allowed_packet' to restore big courses.
 
 Todo
 -----
