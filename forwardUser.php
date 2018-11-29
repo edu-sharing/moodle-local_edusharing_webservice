@@ -21,7 +21,6 @@ if($DB -> record_exists('edusharingtoken', array('userid' => $decrypted -> useri
     $user = $DB->get_record("user", array("id" => $decrypted -> userid));
     complete_user_login($user);
     redirect($CFG->wwwroot . '/course/view.php?id=' . $decrypted-> courseid);
-    //header('Location: ' . $CFG->wwwroot . '/course/view.php?id=' . $decrypted-> courseid);
 } else {
     redirect('../../login/logout.php?sesskey=' . sesskey(), 'Sie haben keine Brechtigung diesen Kurs zu betreten / You are not allowed to access this course', null, \core\output\notification::NOTIFY_ERROR);
 }

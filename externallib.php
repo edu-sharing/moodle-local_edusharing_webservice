@@ -23,7 +23,7 @@ class local_edusharing_external extends external_api {
     //generate login token
     //return token
     public static function handleuser($user_name, $user_givenname, $user_surname, $user_email, $courseid, $role) {
-        global $CFG, $DB;
+        global $DB;
         $user = $DB->get_record("user", array("username" => $user_name));
         if(empty($user)) {
             $user = create_user_record($user_name, uniqid());
@@ -46,9 +46,7 @@ class local_edusharing_external extends external_api {
                 throw new moodle_exception('unabletoenrolerrormessage', 'langsourcefile');
             }
         }
-
         $token = self::generateToken($user->id, $courseid);
-
         return $token;
 
     }
@@ -126,7 +124,15 @@ class local_edusharing_external extends external_api {
 
         $updCourse = array('id' => $courseId, 'fullname' => $title, 'shortname' => $title);
         $DB->update_record('course', $updCourse, $bulk = false);
-        error_log('############ ' . $courseId);
+
+        //activity backups do set enrolement method on restore, so do this manually
+        $enrolId = $DB -> get_record('enrol', array('courseid' => $courseId, 'enrol' => 'manual' ));
+        if(empty($enrolId)) {
+            $enrol = new stdClass();
+            $enrol -> enrol = 'manual';
+            $enrol -> courseid = $courseId;
+            $DB->insert_record('enrol', $enrol);
+        }
         return json_encode($courseId);
     }
 
@@ -134,7 +140,7 @@ class local_edusharing_external extends external_api {
 
         $unique = uniqid();
 
-        global $CFG, $DB;
+        global $DB;
         $data = new stdClass();
         $data->category = $categoryId;
         $data->fullname = $title . '_' . $unique;
