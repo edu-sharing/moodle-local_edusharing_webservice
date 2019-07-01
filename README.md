@@ -28,4 +28,3 @@ Todo
 * List capabilities in services.php according to functions applied
 * Configurable options in rendering service
     * Moodle user that restores courses
-    * Category to restore to
