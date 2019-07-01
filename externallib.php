@@ -125,7 +125,7 @@ class local_edusharing_external extends external_api {
         $updCourse = array('id' => $courseId, 'fullname' => $title, 'shortname' => $title);
         $DB->update_record('course', $updCourse, $bulk = false);
 
-        //activity backups do set enrolement method on restore, so do this manually
+        //activity backups do not set enrolement method on restore, so do this manually
         $enrolId = $DB -> get_record('enrol', array('courseid' => $courseId, 'enrol' => 'manual' ));
         if(empty($enrolId)) {
             $enrol = new stdClass();
