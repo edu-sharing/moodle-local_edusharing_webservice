@@ -15,7 +15,7 @@ Setup
 3. Register application in your edu-sharing repository (do this manually or fetch properties from moodle/local/edusharing/metadata.php)
 4. Setup the Webservice in Moodle
     - Add external service
-    - Add webservice functions
+    - Add the 4 webservice functions (local_edusharing_*)
     - Create webservice user
     - Assign webservice functions
     - Generate user webservice token
