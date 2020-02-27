@@ -15,18 +15,13 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Defines the version of the edu-sharing plugin
+ * Strings for edusharing_webservice
  *
- * @package    edusharing_webservice
+ * @package    local_edusharing_webservice
  * @copyright  metaVentis GmbH — http://metaventis.com
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
-$plugin -> component = 'local_edusharing_webservice';
-$plugin->dependencies = array(
-    'mod_edusharing'  => 2018072701,
-);
-$plugin -> version  = 2020022701;
-$plugin->maturity = MATURITY_BETA;
-$plugin->release = 'v5.0';
+
+$string['pluginname'] = 'edu-sharing webservice';

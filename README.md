@@ -10,17 +10,22 @@ HINT: Disable "Include enrolled users" in Moodle backup dialog. It can cause pro
 
 Setup
 -----
-1. Install this plugin to moodle/local (rename folder to edusharing)
-2. Rename config.dist.php to config.php and set up constants
-3. Register application in your edu-sharing repository (do this manually or fetch properties from moodle/local/edusharing/metadata.php)
-4. Setup the Webservice in Moodle
-    - Add external service
-    - Add the 4 webservice functions (local_edusharing_*)
-    - Create webservice user
-    - Assign webservice functions
-    - Generate user webservice token
-    - Grant privilieges for required functions
-5. Setup config.php in the rendering service moodle module. Use the generated token.
+1. This plugin requires the edu-sharing plugin (https://moodle.org/plugins/mod_edusharing)
+2. Install this plugin to moodle/local (rename folder to edusharing_webservices)
+3. Setup the edu-sharing-webservice in moodle
+    - Activate webservices:
+        - Access Administration > Site administration > Advanced features
+        - Check 'Enable web services' then click 'Save Changes'
+    - Enable REST-protocol:
+        - Access Administration > Site administration > Plugins > Web services > Manage protocols
+        - Enable REST-protocol
+    - Create a webservice user
+    - Generate user webservice token:
+        - Access Administration > Site administration > Plugins > Web services > Manage tokens
+        - Select User: the created webservice-user
+        - Select Service: edusharing-webservice
+        - Save Changes
+5. Setup config.php in the rendering service moodle-module. Use the generated token.
 6. Eventually increase Moodle DB 'max_allowed_packet' to restore big courses.
 
 Todo

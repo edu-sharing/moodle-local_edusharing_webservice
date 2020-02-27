@@ -3,7 +3,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 
-function xmldb_local_edusharing_install(){
+function xmldb_local_edusharing_webservice_install(){
     global $DB;
     $dbFamily = $DB->get_dbfamily();
     if($dbFamily === 'mysql') {

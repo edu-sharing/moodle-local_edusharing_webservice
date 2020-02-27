@@ -1,22 +1,21 @@
 <?php
 
 /**
- * edusharing
+ * Defines the version of the edu-sharing_webservice plugin
  *
- * @package    edusharing
- * @copyright  2017 shippeli
+ * @package    edusharing_webservice
+ * @copyright  metaVentis GmbH — http://metaventis.com
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require_once("config.php");
 require_once($CFG->libdir . "/externallib.php");
-require_once($CFG->libdir . "/coursecatlib.php");
+//require_once($CFG->libdir . "/coursecatlib.php");
 require_once ($CFG->dirroot . '/course/lib.php');
 require_once ($CFG->dirroot . '/course/modlib.php');
 require_once ($CFG->dirroot . '/mod/scorm/lib.php');
 
 
-class local_edusharing_external extends external_api {
+class local_edusharing_webservice_external extends external_api {
 
     //create user if not exists
     //enroll user if not enrolled (set appropriate role)
@@ -82,7 +81,7 @@ class local_edusharing_external extends external_api {
     }
 
     private static function getCategoriesRecursively($id = 0) {
-        foreach(coursecat::get($id) -> get_children() as $id => $cat) {
+        foreach(core_course_category::get($id) -> get_children() as $id => $cat) {
             $catArray[$id] = $cat -> getIterator() -> getArrayCopy();
             $catArray[$id]['children'] = self::getCategoriesRecursively($id);
         }
@@ -118,11 +117,15 @@ class local_edusharing_external extends external_api {
 
     public static function restore($nodeId, $categoryId, $title) {
         global $CFG, $DB;
+
+        //delete course/enrolments
+        self::cleanup($nodeId);
+
         $path = self::prepareCourse($nodeId);
         $courseId = self::restoreCourse($path, $categoryId, $title);
         $course = $DB -> get_record('course', array('id' => $courseId));
 
-        $updCourse = array('id' => $courseId, 'fullname' => $title, 'shortname' => $title);
+        $updCourse = array('id' => $courseId, 'fullname' => $title, 'shortname' => $title, 'idnumber' => $nodeId);
         $DB->update_record('course', $updCourse, $bulk = false);
 
         //activity backups do not set enrolement method on restore, so do this manually
@@ -136,11 +139,29 @@ class local_edusharing_external extends external_api {
         return json_encode($courseId);
     }
 
-    public static function scorm($nodeId, $categoryId, $title) {
-
-        $unique = uniqid();
-
+    public static function cleanup($nodeId) {
         global $DB;
+        $course = $DB -> get_record('course', array('idnumber' => $nodeId));
+        $DB -> delete_records('course', array('idnumber' => $nodeId));
+        $DB -> delete_records('enrol', array('courseid' => $course->id));
+    }
+
+    public static function createempty($nodeId, $categoryId, $title) {
+        $unique = uniqid();
+        $data = new stdClass();
+        $data->category = $categoryId;
+        $data->fullname = $title;
+        $data->shortname = $title . '_' . $unique;
+        $data->idnumber = $nodeId;
+        $course = create_course($data);
+        return json_encode((int)$course->id);
+    }
+
+
+    public static function scorm($nodeId, $categoryId, $title) {
+        $unique = uniqid();
+        global $DB;
+
         $data = new stdClass();
         $data->category = $categoryId;
         $data->fullname = $title . '_' . $unique;
@@ -154,12 +175,12 @@ class local_edusharing_external extends external_api {
 
         $timestamp = round(microtime(true) * 1000);
         $signData = $nodeId . $timestamp;
-        $pkeyid = openssl_get_privatekey(SSL_PRIVATE);
+        $pkeyid = openssl_get_privatekey(get_config('edusharing', 'application_private_key'));
         openssl_sign($signData, $signature, $pkeyid);
         $signature = urlencode(base64_encode($signature));
         openssl_free_key($pkeyid);
-        $contentUrl = CONTENT_URL;
-        $contentUrl .= '?appId=' . APP_ID;
+        $contentUrl = trim(get_config('edusharing', 'application_cc_gui_url'), '/') . '/content';
+        $contentUrl .= '?appId=' . get_config('edusharing', 'application_appid');
         $contentUrl .= '&nodeId=' . $nodeId;
         $contentUrl .= '&timeStamp=' . $timestamp;
         $contentUrl .= '&authToken=' . $signature;
@@ -275,12 +296,12 @@ class local_edusharing_external extends external_api {
         try {
             $timestamp = round(microtime(true) * 1000);
             $signData = $nodeId . $timestamp;
-            $pkeyid = openssl_get_privatekey(SSL_PRIVATE);
+            $pkeyid = openssl_get_privatekey(get_config('edusharing', 'application_private_key'));
             openssl_sign($signData, $signature, $pkeyid);
             $signature = urlencode(base64_encode($signature));
             openssl_free_key($pkeyid);
-            $contentUrl = CONTENT_URL;
-            $contentUrl .= '?appId=' . APP_ID;
+            $contentUrl = trim(get_config('edusharing', 'application_cc_gui_url'), '/') . '/content';
+            $contentUrl .= '?appId=' . get_config('edusharing', 'application_appid');
             $contentUrl .= '&nodeId=' . $nodeId;
             $contentUrl .= '&timeStamp=' . $timestamp;
             $contentUrl .= '&authToken=' . $signature;
@@ -303,7 +324,7 @@ class local_edusharing_external extends external_api {
             fclose($handle);
 
         } catch (Exception $e) {
-            error_log('Error in local_edusharing_external::saveFile()');
+            error_log('Error in local_edusharing_webservice_external::saveFile()');
             return false;
         }
 
@@ -330,6 +351,27 @@ class local_edusharing_external extends external_api {
     public static function restore_returns() {
         return new external_value(PARAM_INT, 'course id');
     }
+
+    /**
+     * Returns description of method parameters
+     * @return external_function_parameters
+     */
+    public static function createempty_parameters() {
+        return new external_function_parameters(array(
+            'nodeid' => new external_value(PARAM_TEXT, 'node ID of course file in repository'),
+            'category' => new external_value(PARAM_INT, 'category id to restore course'),
+            'title' => new external_value(PARAM_TEXT, 'name for course')
+        ));
+    }
+
+    /**
+     * Returns description of method result value
+     * @return external_description
+     */
+    public static function createempty_returns() {
+        return new external_value(PARAM_INT, 'course id');
+    }
+
 
     /**
      * Returns description of method parameters
