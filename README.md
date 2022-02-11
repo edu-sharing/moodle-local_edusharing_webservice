@@ -11,7 +11,7 @@ HINT: Disable "Include enrolled users" in Moodle backup dialog. It can cause pro
 Setup
 -----
 1. This plugin requires the edu-sharing plugin (https://moodle.org/plugins/mod_edusharing)
-2. Install this plugin to moodle/local (rename folder to edusharing_webservices)
+2. Install this plugin to moodle/local (rename folder to edusharing_webservice)
 3. Setup the edu-sharing-webservice in moodle
     - Activate webservices:
         - Access Administration > Site administration > Advanced features
