@@ -46,6 +46,7 @@ class local_edusharing_webservice_external extends external_api {
             }
         }
         $token = self::generateToken($user->id, $courseid);
+
         return $token;
 
     }
@@ -65,12 +66,14 @@ class local_edusharing_webservice_external extends external_api {
         $hash = json_encode($hash);
         $token = self::encrypt($hash);
         $token = base64_encode($token);
+
         return $token;
     }
 
     public static function encrypt($data) {
         $encrypted = '';
-        $privKey = openssl_get_privatekey(SSL_PRIVATE);
+        //$privKey = openssl_get_privatekey(SSL_PRIVATE);
+        $privKey = openssl_get_privatekey(get_config('edusharing', 'application_private_key'));
         openssl_private_encrypt($data,$encrypted,$privKey);
         return $encrypted;
     }
@@ -260,7 +263,7 @@ class local_edusharing_webservice_external extends external_api {
         return $path;
     }
 
-    public function unpackFile($path) {
+    public static function unpackFile($path) {
 
         global $CFG;
 
@@ -268,6 +271,7 @@ class local_edusharing_webservice_external extends external_api {
         try {
             $zip = new ZipArchive;
             $res = $zip -> open($coursePath . '/course.mbz');
+
             if ($res === TRUE) {
                 $zip -> extractTo($coursePath);
                 $zip -> close();
