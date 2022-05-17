@@ -1,7 +1,7 @@
 <?php
 
 require_once(__DIR__ . '/../../config.php');
-global $DB;
+global $DB, $CFG;
 
 $token = base64_decode($_GET['token']);
 if(empty($token)) {

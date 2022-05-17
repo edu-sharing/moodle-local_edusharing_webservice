@@ -1,0 +1,37 @@
+/**
+ * @package    edusharing_webservice
+ * @copyright  metaVentis GmbH — http://metaventis.com
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+/*
+!*elements*!
+#page-navbar, #page-footer, #nav-message-popover-container, #nav-notification-popover-container, nav.fixed-top, #page-header {
+	display:none !important;
+}
+
+!*menu items*!
+[data-key="participants"], [data-key="badgesview"],  [data-key="competencies"],  [data-key="grades"],  [data-key="myhome"],  [data-key="home"],  [data-key="calendar"],  [data-key="privatefiles"],  [data-key="mycourses"], [data-parent-key="mycourses"] {
+	display:none !important;
+}
+
+#nav-drawer {
+	top: 0 !important;
+}
+
+#page {
+	margin-top: 0 !important;
+}
+
+#page-wrapper::after {
+	min-height: 0 !important
+}
+
+[data-region="drawer"] {
+	height: 100% !important;
+}
+
+div.card {
+	border: 0;
+}
+*/
