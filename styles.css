@@ -5,17 +5,15 @@
  */
 
 /*
-!*elements*!
-#page-navbar, #page-footer, #nav-message-popover-container, #nav-notification-popover-container, nav.fixed-top, #page-header {
+#page-navbar, #page-footer, #nav-message-popover-container, #nav-notification-popover-container, nav.fixed-top, .navbar.fixed-top, #page-header {
 	display:none !important;
 }
 
-!*menu items*!
 [data-key="participants"], [data-key="badgesview"],  [data-key="competencies"],  [data-key="grades"],  [data-key="myhome"],  [data-key="home"],  [data-key="calendar"],  [data-key="privatefiles"],  [data-key="mycourses"], [data-parent-key="mycourses"] {
 	display:none !important;
 }
 
-#nav-drawer {
+#nav-drawer, .drawer-left {
 	top: 0 !important;
 }
 
