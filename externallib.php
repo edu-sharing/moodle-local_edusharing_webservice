@@ -17,6 +17,10 @@ require_once ($CFG->dirroot . '/mod/scorm/lib.php');
 
 class local_edusharing_webservice_external extends external_api {
 
+    public static function ping() {
+        return json_encode(["success" => true]);
+    }
+
     //create user if not exists
     //enroll user if not enrolled (set appropriate role)
     //generate login token
@@ -433,9 +437,23 @@ class local_edusharing_webservice_external extends external_api {
      * @return external_description
      */
     public static function getcategories_returns() {
-        return new external_value(PARAM_TEXT, 'category tree in json format');
+        return new external_function_parameters([]);
     }
 
+    /**
+     * Returns description of method result value
+     * @return external_description
+     */
+    public static function ping_parameters() {
+        return new external_function_parameters([]);
+    }
 
+    /**
+     * Returns description of method result value
+     * @return external_description
+     */
+    public static function ping_returns() {
+        return new external_value(PARAM_TEXT, 'category tree in json format');
+    }
 }
 

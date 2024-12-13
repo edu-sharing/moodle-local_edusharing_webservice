@@ -20,6 +20,7 @@ Setup
         - Access Administration > Site administration > Plugins > Web services > Manage protocols
         - Enable REST-protocol
     - Create a webservice user
+      - You might need to create a system role with the appropriate permissions (rest protocol) and assign it to your webservice user
     - Generate user webservice token:
         - Access Administration > Site administration > Plugins > Web services > Manage tokens
         - Select User: the created webservice-user
