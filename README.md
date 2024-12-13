@@ -13,12 +13,7 @@ Setup
 1. This plugin requires the edu-sharing plugin (https://moodle.org/plugins/mod_edusharing)
 2. Install this plugin to moodle/local (rename folder to edusharing_webservice)
 3. Setup the edu-sharing-webservice in moodle
-    - Activate webservices:
-        - Access Administration > Site administration > Advanced features
-        - Check 'Enable web services' then click 'Save Changes'
-    - Enable REST-protocol:
-        - Access Administration > Site administration > Plugins > Web services > Manage protocols
-        - Enable REST-protocol
+    - Webservices and REST-protocol are automatically enabled during installation
     - Create a webservice user
       - You might need to create a system role with the appropriate permissions (rest protocol) and assign it to your webservice user
     - Generate user webservice token:
