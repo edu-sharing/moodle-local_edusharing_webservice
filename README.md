@@ -27,10 +27,22 @@ Setup
         - Select Service: edusharing-webservice
         - Save Changes
 5. Setup config.php in the rendering service moodle-module. Use the generated token.
-6. Eventually increase Moodle DB 'max_allowed_packet' to restore big courses.
+6. You might want to increase Moodle DB 'max_allowed_packet' to restore big courses.
 
-Todo
------
+## Test
+In order to test that the plugin can be reached, use the ping endpoint:
+
+```http://YOUR_MOODLE_HOST/webservice/rest/server.php?wsfunction=local_edusharing_ping&moodlewsrestformat=json&wstoken=YOUR_TOKEN&repoId=YOUR_REPO_ID```
+
+The endpoint tests the validity of your token, the right to access web services and if the correct repo has been registered with moodle. It returns an integer:
+
+- 1: Success
+- 2: No connected repo detected
+- 3: Connected repo does not match repo provided in query param
+- 4: Internal Moodle exception. Please Consult Moodle logs.
+
+
+## ToDo
 * List capabilities in services.php according to functions applied
 * Configurable options in rendering service
     * Moodle user that restores courses

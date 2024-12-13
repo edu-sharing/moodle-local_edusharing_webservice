@@ -8,6 +8,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+global $CFG;
+
 require_once($CFG->libdir . "/externallib.php");
 //require_once($CFG->libdir . "/coursecatlib.php");
 require_once ($CFG->dirroot . '/course/lib.php');
@@ -17,8 +19,20 @@ require_once ($CFG->dirroot . '/mod/scorm/lib.php');
 
 class local_edusharing_webservice_external extends external_api {
 
-    public static function ping() {
-        return json_encode(["success" => true]);
+    public static function ping(String $repoId): Int {
+        try {
+            $connectedRepoId = get_config('edusharing', 'application_homerepid');
+            if (empty($connectedRepoId)) {
+                return 2;
+            }
+            if ($connectedRepoId !== $repoId) {
+                return 3;
+            }
+        } catch (Exception $exception) {
+            error_log($exception->getMessage());
+            return 4;
+        }
+        return 1;
     }
 
     //create user if not exists
@@ -340,7 +354,7 @@ class local_edusharing_webservice_external extends external_api {
     }
 
 
-    /**
+    /**restore_parameters
      * Returns description of method parameters
      * @return external_function_parameters
      */
@@ -445,7 +459,9 @@ class local_edusharing_webservice_external extends external_api {
      * @return external_description
      */
     public static function ping_parameters() {
-        return new external_function_parameters([]);
+        return new external_function_parameters([
+            "repoId" => new external_value(PARAM_TEXT, 'repoId'),
+        ]);
     }
 
     /**
