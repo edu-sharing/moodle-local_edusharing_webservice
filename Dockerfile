@@ -19,9 +19,9 @@ ENV EDUSHARING_RENDER_DOCKER_DEPLOYMENT=1
 COPY . /edusharing/edusharing_webservice
 COPY --from=builder mod_edusharing /edusharing/mod_edusharing
 
-COPY ./edusharing-post-init.sh /docker-entrypoint/init.d/edusharing-post-init.sh
+COPY ./edusharing-post-init.sh /docker-entrypoint-init.d/edusharing-post-init.sh
 
-RUN chmod +x /docker-entrypoint/init.d/edusharing-post-init.sh
+RUN chmod +x /docker-entrypoint-init.d/edusharing-post-init.sh
 
 # TODO default value substituion doesn't work because of the '.' delimiter
 LABEL git.branch=${git_branch} \
