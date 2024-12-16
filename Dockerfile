@@ -1,7 +1,12 @@
 FROM dockerio.mirror.docker.edu-sharing.com/alpine:latest AS builder
 
 RUN apk add --no-cache -U git
-RUN git clone https://github.com/edu-sharing/moodle-mod_edusharing.git mod_edusharing
+RUN set -eux \
+    && git clone https://github.com/edu-sharing/moodle-mod_edusharing.git mod_edusharing \
+    && cd mod_edusharing \
+    && git submodule init \
+    && git submodule update
+
 
 FROM dockerio.mirror.docker.edu-sharing.com/bitnami/moodle:4.5.1
 

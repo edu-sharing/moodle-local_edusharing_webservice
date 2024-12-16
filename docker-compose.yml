@@ -26,7 +26,7 @@ services:
       # ALLOW_EMPTY_PASSWORD is recommended only for development.
       - ALLOW_EMPTY_PASSWORD=yes
       - EDUSHARING_WEBSERVICE_USER=rendering
-      - EDUSHARING_WEBSERVICE_PASSWORD=rendering
+      - EDUSHARING_WEBSERVICE_PASSWORD=Rendering1#
       - EDUSHARING_REPOSITORY_PROT=https
       - EDUSHARING_REPOSITORY_PORT=443
       - EDUSHARING_REPOSITORY_HOST=repository.9-1.enterprise.134.76.16.75.nip.io
@@ -34,21 +34,21 @@ services:
       - EDUSHARING_REPOSITORY_PASSWORD=aaaAAA111###
     depends_on:
       - mariadb
-  moodle2:
-    image: dockerio.mirror.docker.edu-sharing.com/bitnami/moodle:4.5.1
-    environment:
-      - MOODLE_DATABASE_HOST=mariadb
-      - MOODLE_DATABASE_PORT_NUMBER=3306
-      - MOODLE_DATABASE_USER=bn_moodle
-      - MOODLE_DATABASE_NAME=bitnami_moodle
-      # ALLOW_EMPTY_PASSWORD is recommended only for development.
-      - ALLOW_EMPTY_PASSWORD=yes
-      - EDUSHARING_WEBSERVICE_USER=rendering
-      - EDUSHARING_WEBSERVICE_PASSWORD=rendering
-      - EDUSHARING_REPOSITORY_PROT=https
-      - EDUSHARING_REPOSITORY_PORT=443
-      - EDUSHARING_REPOSITORY_HOST=repository.9-1.enterprise.134.76.16.75.nip.io
-      - EDUSHARING_REPOSITORY_USERNAME=admin
-      - EDUSHARING_REPOSITORY_PASSWORD=aaaAAA111###
-    depends_on:
-      - mariadb
+#  moodle2:
+#    image: dockerio.mirror.docker.edu-sharing.com/bitnami/moodle:4.5.1
+#    environment:
+#      - MOODLE_DATABASE_HOST=mariadb
+#      - MOODLE_DATABASE_PORT_NUMBER=3306
+#      - MOODLE_DATABASE_USER=bn_moodle
+#      - MOODLE_DATABASE_NAME=bitnami_moodle
+#      # ALLOW_EMPTY_PASSWORD is recommended only for development.
+#      - ALLOW_EMPTY_PASSWORD=yes
+#      - EDUSHARING_WEBSERVICE_USER=rendering
+#      - EDUSHARING_WEBSERVICE_PASSWORD=rendering
+#      - EDUSHARING_REPOSITORY_PROT=https
+#      - EDUSHARING_REPOSITORY_PORT=443
+#      - EDUSHARING_REPOSITORY_HOST=repository.9-1.enterprise.134.76.16.75.nip.io
+#      - EDUSHARING_REPOSITORY_USERNAME=admin
+#      - EDUSHARING_REPOSITORY_PASSWORD=aaaAAA111###
+#    depends_on:
+#      - mariadb
