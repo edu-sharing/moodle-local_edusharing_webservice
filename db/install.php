@@ -22,9 +22,10 @@ function xmldb_local_edusharing_webservice_install(){
         $DB->execute($query);
     }
 
+    set_config('enablewebservices', 1);
+    set_config('webserviceprotocols', 'rest');
+
     if (! empty(getenv('EDUSHARING_RENDER_DOCKER_DEPLOYMENT'))) {
-        set_config('enablewebservices', 1);
-        set_config('webserviceprotocols', 'rest');
 
         // Create user
         $userArray = [

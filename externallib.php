@@ -180,6 +180,10 @@ class local_edusharing_webservice_external extends external_api {
 
 
     public static function scorm($nodeId, $categoryId, $title) {
+        ini_set(
+            'memory_limit',
+            getenv('EDUSHARING_COURSE_MAX_SIZE') === false ? "512M" : getenv('EDUSHARING_COURSE_MAX_SIZE')
+        );
         $unique = uniqid();
         global $DB;
 
@@ -308,7 +312,10 @@ class local_edusharing_webservice_external extends external_api {
 
 
     public static function saveFile($path, $nodeId) {
-
+        ini_set(
+            'memory_limit',
+            getenv('EDUSHARING_COURSE_MAX_SIZE') === false ? "512M" : getenv('EDUSHARING_COURSE_MAX_SIZE')
+        );
         global $CFG;
 
         $savePath = $CFG -> dataroot . '/temp/backup/' .$path;
