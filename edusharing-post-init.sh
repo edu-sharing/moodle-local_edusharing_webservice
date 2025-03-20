@@ -21,6 +21,9 @@ echo "######################"
 mv /edusharing/edusharing_webservice /bitnami/moodle/local/edusharing_webservice
 mv /edusharing/mod_edusharing /bitnami/moodle/mod/edusharing
 
+## Use for local testing with volume instead of the line above
+##ln -s /edusharing/mod_edusharing /bitnami/moodle/mod/edusharing
+
 chown -R daemon:root /bitnami/moodle/local/edusharing_webservice
 chown -R daemon:root /bitnami/moodle/mod/edusharing
 

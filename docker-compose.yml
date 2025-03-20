@@ -12,10 +12,10 @@ services:
   moodle:
     image: dockerio.mirror.docker.edu-sharing.com/bitnami/moodle:4.5.1
     ## For local testing use build context:
-    ##build:
-    ##  context: .
+    ## build:
+    ##   context: .
     ports:
-      - '80:8080'
+      - '11112:8080'
       - '443:8443'
     environment:
       - BITNAMI_DEBUG=true
@@ -29,11 +29,14 @@ services:
       - EDUSHARING_WEBSERVICE_PASSWORD=Rendering1#
       - EDUSHARING_REPOSITORY_PROT=https
       - EDUSHARING_REPOSITORY_PORT=443
-      - EDUSHARING_REPOSITORY_HOST=repository.9-1.enterprise.123.45.67.89.nip.io
+      - EDUSHARING_REPOSITORY_HOST=repository.9-1.enterprise.134.76.16.75.nip.io
       - EDUSHARING_REPOSITORY_USERNAME=admin
-      - EDUSHARING_REPOSITORY_PASSWORD=somepassword123
+      - EDUSHARING_REPOSITORY_PASSWORD=somepw
       - EDUSHARING_MOODLE_HOST=localhost
       - EDUSHARING_MOODLE_HOST_ALIASES=*
       - EDUSHARING_COURSE_MAX_SIZE=1024M
     depends_on:
       - mariadb
+## For local testing with volume
+ ##   volumes:
+ ##     - ./../../mod/edusharing:/edusharing/mod_edusharing

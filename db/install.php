@@ -8,7 +8,8 @@ require_once $CFG->dirroot."/admin/lib.php";
 require_once $CFG->dirroot."/lib/moodlelib.php";
 
 function xmldb_local_edusharing_webservice_install(){
-    global $DB, $CFG;
+    mtrace('Starting Edu-Sharing web service install script');
+    global $DB;
     $dbFamily = $DB->get_dbfamily();
     if($dbFamily === 'mysql') {
         $query = 'ALTER TABLE ' . $DB->get_prefix() . 'scorm MODIFY COLUMN reference VARCHAR(1000)';
@@ -26,6 +27,10 @@ function xmldb_local_edusharing_webservice_install(){
     set_config('webserviceprotocols', 'rest');
 
     if (! empty(getenv('EDUSHARING_RENDER_DOCKER_DEPLOYMENT'))) {
+        if (empty(getenv('EDUSHARING_WEBSERVICE_USER')) || empty(getenv('EDUSHARING_WEBSERVICE_PASSWORD'))) {
+            mtrace('Edu-Sharing web service docker deployment failed: No webservice user and/or password provided');
+            return true;
+        }
 
         // Create user
         $userArray = [
@@ -38,17 +43,23 @@ function xmldb_local_edusharing_webservice_install(){
             'confirmed' => 1,
             'mnethostid' => 1
         ];
-        $userId = user_create_user($userArray);
+        try {
+            $userId = user_create_user($userArray);
 
-        // Get manager role
-        $managerrole = $DB->get_record('role', ['shortname' => 'manager'], '*', MUST_EXIST);
-        $systemcontext = context_system::instance();
+            // Get manager role
+            $managerrole = $DB->get_record('role', ['shortname' => 'manager'], '*', MUST_EXIST);
+            $systemcontext = context_system::instance();
 
-        // Assign missing capability to manager role
-        assign_capability('webservice/rest:use', CAP_ALLOW, $managerrole->id, $systemcontext->id, true);
+            // Assign missing capability to manager role
+            assign_capability('webservice/rest:use', CAP_ALLOW, $managerrole->id, $systemcontext->id, true);
 
-        // Assign manager role to created user
-        role_assign($managerrole->id, $userId, $systemcontext);
+            // Assign manager role to created user
+            role_assign($managerrole->id, $userId, $systemcontext);
+        } catch (Exception $exception) {
+            mtrace('Web service user creation failed.');
+            mtrace_exception($exception);
+        }
+
 
         // Add css
         set_config('additionalhtmlhead', '<link rel="stylesheet" href="/local/edusharing_webservice/styles.css">');

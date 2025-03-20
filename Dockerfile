@@ -22,6 +22,8 @@ ARG project_version=dev
 ENV EDUSHARING_RENDER_DOCKER_DEPLOYMENT=1
 
 COPY . /edusharing/edusharing_webservice
+
+## Comment out for local testing with volume
 COPY --from=builder mod_edusharing /edusharing/mod_edusharing
 
 COPY ./edusharing-post-init.sh /docker-entrypoint-init.d/edusharing-post-init.sh
