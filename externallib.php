@@ -137,7 +137,14 @@ class local_edusharing_webservice_external extends external_api {
 
 
     public static function restore($nodeId, $categoryId, $title) {
-        global $CFG, $DB;
+        global $DB;
+
+        try {
+            $course = $DB -> get_record('course', ['idnumber' => $nodeId], '*', MUST_EXIST);
+            return json_encode($course->id);
+        } catch (Exception $e) {
+            mtrace('Course not found. Adding it to render moodle.');
+        }
 
         //delete course/enrolments
         self::cleanup($nodeId);
