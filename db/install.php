@@ -55,14 +55,12 @@ function xmldb_local_edusharing_webservice_install(){
 
             // Assign manager role to created user
             role_assign($managerrole->id, $userId, $systemcontext);
+            // Add css
+            set_config('additionalhtmlhead', '<link rel="stylesheet" href="/local/edusharing_webservice/styles.css">');
         } catch (Exception $exception) {
             mtrace('Web service user creation failed.');
             mtrace_exception($exception);
         }
-
-
-        // Add css
-        set_config('additionalhtmlhead', '<link rel="stylesheet" href="/local/edusharing_webservice/styles.css">');
     }
 
     return true;

@@ -10,12 +10,13 @@
 
 global $CFG;
 
+use mod_edusharing\EduSharingService;
+
 require_once($CFG->libdir . "/externallib.php");
-//require_once($CFG->libdir . "/coursecatlib.php");
 require_once ($CFG->dirroot . '/course/lib.php');
 require_once ($CFG->dirroot . '/course/modlib.php');
 require_once ($CFG->dirroot . '/mod/scorm/lib.php');
-
+require_once($CFG->dirroot . '/mod/edusharing/eduSharingAutoloader.php');
 
 class local_edusharing_webservice_external extends external_api {
 
@@ -139,11 +140,15 @@ class local_edusharing_webservice_external extends external_api {
     public static function restore($nodeId, $categoryId, $title) {
         global $DB;
 
-        try {
-            $course = $DB -> get_record('course', ['idnumber' => $nodeId], '*', MUST_EXIST);
-            return json_encode($course->id);
-        } catch (Exception $e) {
-            mtrace('Course not found. Adding it to render moodle.');
+        $service = new EduSharingService();
+
+        if ($service->has_rendering_2()) {
+            try {
+                $course = $DB -> get_record('course', ['idnumber' => $nodeId], '*', MUST_EXIST);
+                return json_encode($course->id);
+            } catch (Exception $e) {
+                mtrace('Course not found. Adding it to render moodle.');
+            }
         }
 
         //delete course/enrolments
@@ -187,10 +192,14 @@ class local_edusharing_webservice_external extends external_api {
 
 
     public static function scorm($nodeId, $categoryId, $title) {
-        ini_set(
-            'memory_limit',
-            getenv('EDUSHARING_COURSE_MAX_SIZE') === false ? "512M" : getenv('EDUSHARING_COURSE_MAX_SIZE')
-        );
+
+        $service = new EduSharingService();
+        if ($service->has_rendering_2()) {
+            ini_set(
+                'memory_limit',
+                getenv('EDUSHARING_COURSE_MAX_SIZE') === false ? "512M" : getenv('EDUSHARING_COURSE_MAX_SIZE')
+            );
+        }
         $unique = uniqid();
         global $DB;
 
@@ -319,14 +328,17 @@ class local_edusharing_webservice_external extends external_api {
 
 
     public static function saveFile($path, $nodeId) {
-        ini_set(
-            'memory_limit',
-            getenv('EDUSHARING_COURSE_MAX_SIZE') === false ? "512M" : getenv('EDUSHARING_COURSE_MAX_SIZE')
-        );
         global $CFG;
 
-        $savePath = $CFG -> dataroot . '/temp/backup/' .$path;
+        $service = new EduSharingService();
+        if ($service->has_rendering_2()) {
+            ini_set(
+                'memory_limit',
+                getenv('EDUSHARING_COURSE_MAX_SIZE') === false ? "512M" : getenv('EDUSHARING_COURSE_MAX_SIZE')
+            );
+        }
 
+        $savePath = $CFG -> dataroot . '/temp/backup/' .$path;
         mkdir($savePath, 0744);
 
         try {
