@@ -10,13 +10,13 @@ services:
       - MARIADB_CHARACTER_SET=utf8mb4
       - MARIADB_COLLATE=utf8mb4_unicode_ci
   moodle:
-    image: dockerio.mirror.docker.edu-sharing.com/bitnami/moodle:4.5.1
+    ## image: dockerio.mirror.docker.edu-sharing.com/bitnami/moodle:4.5.4
     ## For local testing use build context:
-    ## build:
-    ##   context: .
+    build:
+       context: .
     ports:
       - '11112:8080'
-      - '443:8443'
+      - '8443:443'
     environment:
       - BITNAMI_DEBUG=true
       - MOODLE_DATABASE_HOST=mariadb
@@ -26,12 +26,12 @@ services:
       # ALLOW_EMPTY_PASSWORD is recommended only for development.
       - ALLOW_EMPTY_PASSWORD=yes
       - EDUSHARING_WEBSERVICE_USER=rendering
-      - EDUSHARING_WEBSERVICE_PASSWORD=Rendering1#
+      - EDUSHARING_WEBSERVICE_PASSWORD=Rendering_1
       - EDUSHARING_REPOSITORY_PROT=https
       - EDUSHARING_REPOSITORY_PORT=443
-      - EDUSHARING_REPOSITORY_HOST=repository.9-1.enterprise.134.76.16.75.nip.io
+      - EDUSHARING_REPOSITORY_HOST=repository.10-0.enterprise.edu.edu-sharing.de
       - EDUSHARING_REPOSITORY_USERNAME=admin
-      - EDUSHARING_REPOSITORY_PASSWORD=somepw
+      - EDUSHARING_REPOSITORY_PASSWORD=asfdasdasd
       - EDUSHARING_MOODLE_HOST=localhost
       - EDUSHARING_MOODLE_HOST_ALIASES=*
       - EDUSHARING_COURSE_MAX_SIZE=1024M
