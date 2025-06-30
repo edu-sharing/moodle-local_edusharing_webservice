@@ -8,7 +8,7 @@ RUN set -eux \
     && git submodule update
 
 
-FROM dockerio.mirror.docker.edu-sharing.com/bitnami/moodle:4.5.1
+FROM dockerio.mirror.docker.edu-sharing.com/bitnami/moodle:4.5.4
 
 ARG git_branch=dev
 ARG git_closest_tag_fixed=dev
