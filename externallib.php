@@ -42,7 +42,7 @@ class local_edusharing_webservice_external extends external_api {
     //return token
     public static function handleuser($user_name, $user_givenname, $user_surname, $user_email, $courseid, $role) {
         global $DB;
-        $user = $DB->get_record("user", array("username" => $user_name));
+        $user = $DB->get_record("user", ["username" => $user_name]);
         if(empty($user)) {
             $user = create_user_record($user_name, uniqid());
             $user -> firstname = $user_givenname;
@@ -57,7 +57,7 @@ class local_edusharing_webservice_external extends external_api {
         if($role == 'editingteacher') {
             $roleshortname = 'editingteacher';
         }
-        $roleid = $DB->get_field('role', 'id', array('shortname' => $roleshortname));
+        $roleid = $DB->get_field('role', 'id', ['shortname' => $roleshortname]);
 
         if (!is_enrolled($context, $user->id)) {
             if (!enrol_try_internal_enrol($courseid, $user->id, $roleid, time())) {
@@ -156,13 +156,13 @@ class local_edusharing_webservice_external extends external_api {
 
         $path = self::prepareCourse($nodeId);
         $courseId = self::restoreCourse($path, $categoryId, $title);
-        $course = $DB -> get_record('course', array('id' => $courseId));
+        $course = $DB -> get_record('course', ['id' => $courseId]);
 
-        $updCourse = array('id' => $courseId, 'fullname' => $title, 'shortname' => $title, 'idnumber' => $nodeId);
+        $updCourse = ['id' => $courseId, 'fullname' => $title, 'shortname' => $title, 'idnumber' => $nodeId];
         $DB->update_record('course', $updCourse, $bulk = false);
 
         //activity backups do not set enrolement method on restore, so do this manually
-        $enrolId = $DB -> get_record('enrol', array('courseid' => $courseId, 'enrol' => 'manual' ));
+        $enrolId = $DB -> get_record('enrol', ['courseid' => $courseId, 'enrol' => 'manual']);
         if(empty($enrolId)) {
             $enrol = new stdClass();
             $enrol -> enrol = 'manual';
@@ -174,9 +174,9 @@ class local_edusharing_webservice_external extends external_api {
 
     public static function cleanup($nodeId) {
         global $DB;
-        $course = $DB -> get_record('course', array('idnumber' => $nodeId));
-        $DB -> delete_records('course', array('idnumber' => $nodeId));
-        $DB -> delete_records('enrol', array('courseid' => $course->id));
+        $course = $DB -> get_record('course', ['idnumber' => $nodeId]);
+        $DB -> delete_records('course', ['idnumber' => $nodeId]);
+        $DB -> delete_records('enrol', ['courseid' => $course->id]);
     }
 
     public static function createempty($nodeId, $categoryId, $title) {
@@ -192,6 +192,7 @@ class local_edusharing_webservice_external extends external_api {
 
 
     public static function scorm($nodeId, $categoryId, $title) {
+        global $DB;
 
         $service = new EduSharingService();
         if ($service->has_rendering_2()) {
@@ -199,9 +200,14 @@ class local_edusharing_webservice_external extends external_api {
                 'memory_limit',
                 getenv('EDUSHARING_COURSE_MAX_SIZE') === false ? "512M" : getenv('EDUSHARING_COURSE_MAX_SIZE')
             );
+            try {
+                $course = $DB->get_record('course', ['idnumber' => $nodeId], '*', MUST_EXIST);
+                return json_encode($course->id);
+            } catch (Exception $e) {
+                mtrace('Course not found. Adding it to render moodle.');
+            }
         }
         $unique = uniqid();
-        global $DB;
 
         $data = new stdClass();
         $data->category = $categoryId;
@@ -209,10 +215,11 @@ class local_edusharing_webservice_external extends external_api {
         $data->shortname = $title . '_' . $unique;
         $data->format= 'singleactivity';
         $data->activitytype = 'scorm';
+        $data->idnumber = $nodeId;
         $course = create_course($data);
 
         set_config('allowtypelocalsync', 1, 'scorm');
-        $scorm_module_id = $DB->get_field('modules', 'id', array('name'  => 'scorm'));
+        $scorm_module_id = $DB->get_field('modules', 'id', ['name' => 'scorm']);
 
         $timestamp = round(microtime(true) * 1000);
         $signData = $nodeId . $timestamp;
@@ -257,7 +264,6 @@ class local_edusharing_webservice_external extends external_api {
         $scormdata->mform_isexpanded_id_competenciessection = '0';
         $scormdata->updatefreq = '0';
         $scormdata->popup = '0';
-        $scormdata->displayactivityname = '0';
         $scormdata->displayactivityname = '1';
         $scormdata->skipview = '0';
         $scormdata->hidebrowse = '0';
@@ -275,7 +281,6 @@ class local_edusharing_webservice_external extends external_api {
         $scormdata->auto = '0';
         $scormdata->autocommit = '0';
         $scormdata->masteryoverride = '1';
-        $scormdata->visible = '1';
         $scormdata->cmidnumber = '';
         $scormdata->groupmode = '0';
         $scormdata->completion = '1';
@@ -355,7 +360,7 @@ class local_edusharing_webservice_external extends external_api {
             $contentUrl .= '&authToken=' . $signature;
 
 
-	        $opts=array("ssl"=>array("verify_peer"=>false,"verify_peer_name"=>false));
+	        $opts= ["ssl" => ["verify_peer" =>false, "verify_peer_name" =>false]];
 
             $handle = fopen($contentUrl, "rb", false, stream_context_create($opts));
             if($handle === false) {
@@ -385,11 +390,11 @@ class local_edusharing_webservice_external extends external_api {
      * @return external_function_parameters
      */
     public static function restore_parameters() {
-        return new external_function_parameters(array(
+        return new external_function_parameters([
             'nodeid' => new external_value(PARAM_TEXT, 'node ID of course file in repository'),
             'category' => new external_value(PARAM_INT, 'category id to restore course'),
             'title' => new external_value(PARAM_TEXT, 'name for course')
-        ));
+        ]);
     }
 
     /**
@@ -405,11 +410,11 @@ class local_edusharing_webservice_external extends external_api {
      * @return external_function_parameters
      */
     public static function createempty_parameters() {
-        return new external_function_parameters(array(
+        return new external_function_parameters([
             'nodeid' => new external_value(PARAM_TEXT, 'node ID of course file in repository'),
             'category' => new external_value(PARAM_INT, 'category id to restore course'),
             'title' => new external_value(PARAM_TEXT, 'name for course')
-        ));
+        ]);
     }
 
     /**
@@ -426,11 +431,11 @@ class local_edusharing_webservice_external extends external_api {
      * @return external_function_parameters
      */
     public static function scorm_parameters() {
-        return new external_function_parameters(array(
+        return new external_function_parameters([
             'nodeid' => new external_value(PARAM_TEXT, 'node ID of course file in repository'),
             'category' => new external_value(PARAM_INT, 'category id to restore course'),
             'title' => new external_value(PARAM_TEXT, 'name for course')
-        ));
+        ]);
     }
 
     /**
@@ -446,14 +451,14 @@ class local_edusharing_webservice_external extends external_api {
      * @return external_function_parameters
      */
     public static function handleuser_parameters() {
-        return new external_function_parameters(array(
+        return new external_function_parameters([
             'user_name' => new external_value(PARAM_TEXT, 'username to create / enrol / login'),
             'user_givenname' => new external_value(PARAM_TEXT, 'user_givenname'),
             'user_surname' => new external_value(PARAM_TEXT, 'user_surname'),
             'user_email' => new external_value(PARAM_TEXT, 'user_email'),
             'courseid' => new external_value(PARAM_INT, 'course id'),
             'role' => new external_value(PARAM_TEXT, 'role for enrolement')
-        ));
+        ]);
     }
 
     /**
@@ -469,7 +474,7 @@ class local_edusharing_webservice_external extends external_api {
      * @return external_function_parameters
      */
     public static function getcategories_parameters() {
-        return new external_function_parameters(array());
+        return new external_function_parameters([]);
     }
 
     /**
