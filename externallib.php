@@ -49,11 +49,13 @@ class local_edusharing_webservice_external extends external_api {
             $user -> lastname = $user_surname;
             $user -> email = $user_email;
             $DB -> update_record('user', $user);
+            $restrictedrole = $DB->get_record('role', ['shortname' => 'restrictedrenderinguser'], '*', MUST_EXIST);
+            role_assign($restrictedrole->id, $user->id, context_system::instance()->id);
         }
 
         $context = context_course::instance($courseid);
 
-        $roleshortname = 'student';
+        $roleshortname = 'restrictedrenderinguser';
         if($role == 'editingteacher') {
             $roleshortname = 'editingteacher';
         }
@@ -143,12 +145,18 @@ class local_edusharing_webservice_external extends external_api {
         $service = new EduSharingService();
 
         if ($service->has_rendering_2()) {
+            ini_set(
+                'memory_limit',
+                getenv('EDUSHARING_COURSE_MAX_SIZE') === false ? "512M" : getenv('EDUSHARING_COURSE_MAX_SIZE')
+            );
             try {
                 $course = $DB -> get_record('course', ['idnumber' => $nodeId], '*', MUST_EXIST);
                 return json_encode($course->id);
             } catch (Exception $e) {
                 mtrace('Course not found. Adding it to render moodle.');
             }
+        } else {
+            ini_set('memory_limit', "512");
         }
 
         //delete course/enrolments
@@ -203,9 +211,9 @@ class local_edusharing_webservice_external extends external_api {
             try {
                 $course = $DB->get_record('course', ['idnumber' => $nodeId], '*', MUST_EXIST);
                 return json_encode($course->id);
-            } catch (Exception $e) {
-                mtrace('Course not found. Adding it to render moodle.');
-            }
+            } catch (Exception $e) {}
+        } else {
+            ini_set('memory_limit', "512M");
         }
         $unique = uniqid();
 
@@ -265,10 +273,10 @@ class local_edusharing_webservice_external extends external_api {
         $scormdata->updatefreq = '0';
         $scormdata->popup = '0';
         $scormdata->displayactivityname = '1';
-        $scormdata->skipview = '0';
+        $scormdata->skipview = '2';
         $scormdata->hidebrowse = '0';
         $scormdata->displaycoursestructure = '0';
-        $scormdata->hidetoc = '0';
+        $scormdata->hidetoc = '1';
         $scormdata->nav = '1';
         $scormdata->displayattemptstatus = '1';
         $scormdata->grademethod = '1';

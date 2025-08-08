@@ -18,7 +18,7 @@ HINT: Disable "Include enrolled users" in Moodle backup dialog. It can cause pro
     - Create a webservice user
       - You might need to create a system role with the appropriate permissions (rest protocol) and assign it to your webservice user
     - Generate user webservice token:
-        - Access Administration > Site administration > Plugins > Web services > Manage tokens
+        - Access Administration > Site administration > Server > Web services > Manage tokens
         - Select User: the created webservice-user
         - Select Service: edusharing-webservice
         - Save Changes

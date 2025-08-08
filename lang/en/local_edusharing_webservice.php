@@ -25,3 +25,5 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['pluginname'] = 'edu-sharing webservice';
+$string['edusharing_webservice:manageusers'] = 'Manage edu-sharing users';
+$string['edusharing_webservice:use'] = 'Use edu-sharing webservice';

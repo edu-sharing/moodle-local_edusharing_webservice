@@ -17,16 +17,14 @@
 /**
  * Defines the version of the edu-sharing plugin
  *
- * @package    edusharing_webservice
+ * @package    local_edusharing_webservice
  * @copyright  metaVentis GmbH — http://metaventis.com
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 $plugin->component = 'local_edusharing_webservice';
-$plugin->dependencies = array(
-    'mod_edusharing'  => 2018072701,
-);
-$plugin->version  = 2022022201;
-$plugin->maturity = MATURITY_BETA;
-$plugin->release = 'v5.0';
+$plugin->dependencies = ['mod_edusharing'  => 2025072300];
+$plugin->version  = 2025080800;
+$plugin->maturity = MATURITY_STABLE;
+$plugin->release = '10.0';

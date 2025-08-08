@@ -13,10 +13,10 @@ $decrypted = '';
 openssl_public_decrypt($token, $decrypted, $pubkey);
 $decrypted = json_decode($decrypted);
 
-if($DB -> record_exists('edusharingtoken', array('userid' => $decrypted -> userid, 'courseid' => $decrypted-> courseid, 'ts' => $decrypted-> ts, 'uniqid' => $decrypted -> uniqid))) {
+if($DB -> record_exists('edusharingtoken', ['userid' => $decrypted -> userid, 'courseid' => $decrypted-> courseid, 'ts' => $decrypted-> ts, 'uniqid' => $decrypted -> uniqid])) {
     //delete record and login and forward user
-    $DB -> delete_records('edusharingtoken', array('userid' => $decrypted -> userid, 'courseid' => $decrypted-> courseid, 'ts' => $decrypted-> ts, 'uniqid' => $decrypted -> uniqid));
-    $user = $DB->get_record("user", array("id" => $decrypted -> userid));
+    $DB -> delete_records('edusharingtoken', ['userid' => $decrypted -> userid, 'courseid' => $decrypted-> courseid, 'ts' => $decrypted-> ts, 'uniqid' => $decrypted -> uniqid]);
+    $user = $DB->get_record("user", ["id" => $decrypted -> userid]);
     complete_user_login($user);
     redirect($CFG->wwwroot . '/course/view.php?id=' . $decrypted-> courseid);
 } else {

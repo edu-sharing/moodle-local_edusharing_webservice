@@ -8,7 +8,6 @@ require_once $CFG->dirroot."/admin/lib.php";
 require_once $CFG->dirroot."/lib/moodlelib.php";
 
 function xmldb_local_edusharing_webservice_install(){
-    mtrace('Starting Edu-Sharing web service install script');
     global $DB;
     $dbFamily = $DB->get_dbfamily();
     if($dbFamily === 'mysql') {
@@ -25,6 +24,61 @@ function xmldb_local_edusharing_webservice_install(){
 
     set_config('enablewebservices', 1);
     set_config('webserviceprotocols', 'rest');
+    set_config('allowframembedding', 1);
+    set_config('format_singleactivity', 'scorm', 'activitytype');
+
+    $systemcontext = context_system::instance();
+    try {
+        $scormrecords = $DB->get_records('scorm');
+        foreach ($scormrecords as $record) {
+            $record->skipview ='2';
+            $record->hidetoc = '1';
+            $DB->update_record('scorm', $record);
+        }
+        $restrictedRoleId = create_role(
+            'Restricted Rendering-User',
+            'restrictedrenderinguser',
+            'A restricted edu-sharing rendering user with minimal access'
+        );
+        set_role_contextlevels($restrictedRoleId, [CONTEXT_SYSTEM, CONTEXT_COURSE]);
+        $role = $DB->get_record('role', ['shortname' => 'user'], '*', MUST_EXIST);
+        $rolecaps = role_context_capabilities($role->id, $systemcontext);
+        $standardallowedcaps = array_keys(array_filter($rolecaps, fn($permission) => $permission == CAP_ALLOW));
+        $whitelist = [
+            'moodle/course:view',
+            'moodle/block:view',
+            'mod/url:view',
+            'mod/resource:view',
+            'mod/page:view',
+            'mod/lesson:view',
+            'mod/label:view',
+            'mod/choice:view',
+            'moodle/blog:view',
+        ];
+        foreach ($standardallowedcaps as $cap) {
+            if (!in_array($cap, $whitelist)) {
+                assign_capability($cap, CAP_PROHIBIT, $restrictedRoleId, $systemcontext, true);
+            }
+        }
+        $users = $DB->get_records('user', ['deleted' => 0]);
+
+        foreach ($users as $user) {
+            if (is_siteadmin($user) || isguestuser($user)) {
+                continue;
+            }
+            // Get all system context role assignments for this user
+            $systemroles = $DB->get_records('role_assignments', [
+                'userid' => $user->id,
+                'contextid' => $systemcontext->id
+            ]);
+
+            if (count($systemroles) === 0) {
+                role_assign($restrictedRoleId, $user->id, $systemcontext);
+            }
+        }
+    } catch (exception $e) {
+        error_log($e->getMessage());
+    }
 
     if (! empty(getenv('EDUSHARING_RENDER_DOCKER_DEPLOYMENT'))) {
         if (empty(getenv('EDUSHARING_WEBSERVICE_USER')) || empty(getenv('EDUSHARING_WEBSERVICE_PASSWORD'))) {
@@ -62,6 +116,5 @@ function xmldb_local_edusharing_webservice_install(){
             mtrace_exception($exception);
         }
     }
-
     return true;
 }
