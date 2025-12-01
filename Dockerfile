@@ -7,6 +7,11 @@ RUN set -eux \
     && git submodule init \
     && git submodule update
 
+RUN set -eux \
+    && git clone -b stable https://github.com/h5p/moodle-mod_hvp.git mod_hvp \
+    && cd mod_hvp \
+    && git submodule init \
+    && git submodule update
 
 FROM dockerio.mirror.docker.edu-sharing.com/bitnami/moodle:4.5.4
 
@@ -25,6 +30,7 @@ COPY . /edusharing/edusharing_webservice
 
 ## Comment out for local testing with volume
 COPY --from=builder mod_edusharing /edusharing/mod_edusharing
+COPY --from=builder mod_hvp /hvp/mod_hvp
 
 COPY ./edusharing-post-init.sh /docker-entrypoint-init.d/edusharing-post-init.sh
 RUN chmod +x /docker-entrypoint-init.d/edusharing-post-init.sh

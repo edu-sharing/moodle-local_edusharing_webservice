@@ -8,7 +8,8 @@ $services = [
             'local_edusharing_createempty',
             'local_edusharing_handleuser',
             'local_edusharing_scorm',
-            'local_edusharing_ping'
+            'local_edusharing_ping',
+            'local_edusharing_restore_course'
         ],
         'requiredcapability' => '',                             //if set, the web service user need this capability to access any function of this service. For example: 'some/capability:specified'
         'restrictedusers'    => 0,                                  //if enabled, the Moodle administrator must link some user to this service into the administration
@@ -65,5 +66,10 @@ $functions = [
         'description'  => 'Test the plugins functionality.',
         'type'         => 'read', // the value is 'write' if your function does any database change, otherwise it is 'read'.
         'capabilities' => '',  // List the capabilities used in the function (missing capabilities are displayed for authorised users and also for manually created tokens in the web interface, this is just informative).
+    ],
+    'local_edusharing_restore_course' => [
+        'classname'   => 'local_edusharing_webservice\external\RestoreCourse',
+        'description' => 'Restore course or activity from an edu-sharing repository to moodle.',
+        'type'        => 'write',
     ]
 ];

@@ -75,6 +75,7 @@ class local_edusharing_webservice_external extends external_api {
     private static function generateToken($userid, $courseid) {
 
         global $DB;
+        $service = new EduSharingService();
 
         $hash = new stdClass;
         $hash -> userid = (int)$userid;
@@ -86,7 +87,11 @@ class local_edusharing_webservice_external extends external_api {
 
         $hash = json_encode($hash);
         $token = self::encrypt($hash);
-        $token = base64_encode($token);
+        if ($service->has_rendering_2()) {
+            $token = base64_encode($token);
+        } else {
+            $token = base64_encode($token);
+        }
 
         return $token;
     }
@@ -183,8 +188,10 @@ class local_edusharing_webservice_external extends external_api {
     public static function cleanup($nodeId) {
         global $DB;
         $course = $DB -> get_record('course', ['idnumber' => $nodeId]);
-        $DB -> delete_records('course', ['idnumber' => $nodeId]);
-        $DB -> delete_records('enrol', ['courseid' => $course->id]);
+        if ($course) {
+            $DB -> delete_records('course', ['idnumber' => $nodeId]);
+            $DB -> delete_records('enrol', ['courseid' => $course->id]);
+        }
     }
 
     public static function createempty($nodeId, $categoryId, $title) {
