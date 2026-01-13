@@ -54,6 +54,8 @@ function xmldb_local_edusharing_webservice_install(){
             'mod/label:view',
             'mod/choice:view',
             'moodle/blog:view',
+            'mod/hvp:view',
+            'mod/hvp:viewresults'
         ];
         foreach ($standardallowedcaps as $cap) {
             if (!in_array($cap, $whitelist)) {
@@ -100,15 +102,37 @@ function xmldb_local_edusharing_webservice_install(){
         try {
             $userId = user_create_user($userArray);
 
-            // Get manager role
-            $managerrole = $DB->get_record('role', ['shortname' => 'manager'], '*', MUST_EXIST);
-            $systemcontext = context_system::instance();
+            // Create web service user
+            $webServiceUser = create_role(
+                'Rendering Web Service User',
+                'renderingwebserviceuser',
+                'The user used by the edu-sharing web service to render courses'
+            );
 
-            // Assign missing capability to manager role
-            assign_capability('webservice/rest:use', CAP_ALLOW, $managerrole->id, $systemcontext->id, true);
+            set_role_contextlevels($webServiceUser, [CONTEXT_SYSTEM]);
 
-            // Assign manager role to created user
-            role_assign($managerrole->id, $userId, $systemcontext);
+            $webServiceUserCaps = [
+                'moodle/restore:restoreactivity',
+                'moodle/restore:restorecourse',
+                'moodle/restore:restoresection',
+                'moodle/restore:restoretargetimport',
+                'moodle/restore:uploadfile',
+                'moodle/restore:viewautomatedfilearea',
+                'webservice/rest:use',
+                'mod/hvp:addinstance',
+                'mod/hvp:installrecommendedh5plibraries',
+                'mod/hvp:userestrictedlibraries',
+                'moodle/h5p:deploy',
+                'moodle/h5p:updatelibraries',
+                'mod/scorm:addinstance',
+                'moodle/webservice:createtoken'
+            ];
+            foreach ($webServiceUserCaps as $cap) {
+                assign_capability($cap, CAP_ALLOW, $webServiceUser, $systemcontext, true);
+            }
+
+            role_assign($webServiceUser, $userId, $systemcontext);
+
             // Add css
             set_config('additionalhtmlhead', '<link rel="stylesheet" href="/local/edusharing_webservice/styles.css">');
         } catch (Exception $exception) {

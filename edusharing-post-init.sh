@@ -19,10 +19,11 @@ echo "######################"
 . /opt/bitnami/scripts/libwebserver.sh
 
 mv /edusharing/edusharing_webservice /bitnami/moodle/local/edusharing_webservice
-mv /edusharing/mod_edusharing /bitnami/moodle/mod/edusharing
+##mv /edusharing/mod_edusharing /bitnami/moodle/mod/edusharing
+mv /hvp/mod_hvp /bitnami/moodle/mod/hvp
 
 ## Use for local testing with volume instead of the line above
-##ln -s /edusharing/mod_edusharing /bitnami/moodle/mod/edusharing
+ln -s /edusharing/mod_edusharing /bitnami/moodle/mod/edusharing
 
 chown -R daemon:root /bitnami/moodle/local/edusharing_webservice
 chown -R daemon:root /bitnami/moodle/mod/edusharing

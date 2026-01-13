@@ -43,6 +43,7 @@ class RestoreTask extends \core\task\asynchronous_restore_task
 
         try {
             $restore->status = RestoreStatus::RUNNING;
+            $restore->lastmodified = time();
             $DB->update_record('edu_restore', $restore);
             $controller = $this->renderMoodleService->prepareRestore(
                 nodeId: $restore->nodeid,
@@ -57,9 +58,11 @@ class RestoreTask extends \core\task\asynchronous_restore_task
                 title: $customData['title']
             );
             $restore->status = RestoreStatus::SUCCESS;
+            $restore->lastmodified = time();
             $DB->update_record('edu_restore', $restore);
         } catch (Exception $exception) {
             $restore->status = RestoreStatus::FAILURE;
+            $restore->lastmodified = time();
             $restore->message = $exception->getMessage();
             try {
                 $DB->update_record('edu_restore', $restore);

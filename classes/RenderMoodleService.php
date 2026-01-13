@@ -61,7 +61,7 @@ class RenderMoodleService
             return new RestoreCourseDTO(courseId: null, restoreId: $restore->id);
         }
 
-        $restoreId = $DB->insert_record('edu_restore', ['nodeid' => $nodeId]);
+        $restoreId = $DB->insert_record('edu_restore', ['nodeid' => $nodeId, 'lastmodified' => time()]);
         $task = new RestoreTask();
         $task->set_custom_data(
             [

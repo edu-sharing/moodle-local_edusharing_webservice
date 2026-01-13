@@ -29,14 +29,15 @@ services:
       - EDUSHARING_WEBSERVICE_PASSWORD=Rendering_1
       - EDUSHARING_REPOSITORY_PROT=https
       - EDUSHARING_REPOSITORY_PORT=443
-      - EDUSHARING_REPOSITORY_HOST=repository.10-0.enterprise.edu.edu-sharing.de
+      - EDUSHARING_REPOSITORY_HOST=repository.10-0.enterprise.134.76.16.75.nip.io
       - EDUSHARING_REPOSITORY_USERNAME=admin
-      - EDUSHARING_REPOSITORY_PASSWORD=asfdasdasd
+      - EDUSHARING_REPOSITORY_PASSWORD=aaaAAA111###
       - EDUSHARING_MOODLE_HOST=localhost
       - EDUSHARING_MOODLE_HOST_ALIASES=*
       - EDUSHARING_COURSE_MAX_SIZE=1024M
+      - EDUSHARING_RENDER_DOCKER_DEPLOYMENT=1
     depends_on:
       - mariadb
-## For local testing with volume
- ##   volumes:
- ##     - ./../../mod/edusharing:/edusharing/mod_edusharing
+ ##For local testing with volume
+    volumes:
+      - ./../../mod/edusharing:/edusharing/mod_edusharing
