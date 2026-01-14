@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+use local_edusharing_webservice\InstallUpgradeHelper;
+
 /**
  * Upgrade steps for the local_edusharing_webservice plugin.
  *
@@ -25,51 +27,20 @@
 
 function xmldb_local_edusharing_webservice_upgrade($oldversion) {
     global $DB;
+    $helper = new InstallUpgradeHelper();
     if ($oldversion < 2025080800) {
         set_config('allowframembedding', 1);
         set_config('format_singleactivity', 'scorm', 'activitytype');
 
-        $systemcontext = context_system::instance();
         try {
-            $scormrecords = $DB->get_records('scorm');
-            foreach ($scormrecords as $record) {
-                $record->skipview ='2';
-                $record->hidetoc = '1';
-                $DB->update_record('scorm', $record);
-            }
-            $role = $DB->get_record('role', ['shortname' => 'user'], '*', MUST_EXIST);
-            $rolecaps = role_context_capabilities($role->id, $systemcontext);
-            $standardallowedcaps = array_keys(array_filter($rolecaps, fn($permission) => $permission === CAP_ALLOW));
-            $whitelist = [
-                'moodle/course:view',
-            ];
-            $restrictedRoleId = create_role(
-                'Restricted Rendering-User',
-                'restrictedrenderinguser',
-                'A restricted edu-sharing rendering user with minimal access'
-            );
-            set_role_contextlevels($restrictedRoleId, [CONTEXT_SYSTEM, CONTEXT_COURSE]);
-            foreach ($standardallowedcaps as $cap) {
-                if (!in_array($cap, $whitelist)) {
-                    assign_capability($cap, CAP_PROHIBIT, $restrictedRoleId, $systemcontext, true);
-                }
-            }
-            $users = $DB->get_records('user', ['deleted' => 0]);
+            $helper->update_scorm_packages();
+            $helper->create_restricted_role();
+        } catch (exception $e) {
+            error_log($e->getMessage());
+        }
 
-            foreach ($users as $user) {
-                if (is_siteadmin($user) || isguestuser($user)) {
-                    continue;
-                }
-                // Get all system context role assignments for this user
-                $systemroles = $DB->get_records('role_assignments', [
-                    'userid' => $user->id,
-                    'contextid' => $systemcontext->id
-                ]);
-
-                if (count($systemroles) === 0) {
-                    role_assign($restrictedRoleId, $user->id, $systemcontext);
-                }
-            }
+        try {
+            $helper->delete_users();
         } catch (exception $e) {
             error_log($e->getMessage());
         }
