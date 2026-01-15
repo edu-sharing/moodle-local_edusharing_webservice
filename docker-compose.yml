@@ -1,42 +1,47 @@
+version: '3.8'
 
 services:
-  mariadb:
-    image: docker.io/bitnami/mariadb:latest
+  db:
+    image: mariadb:10.11
+    command: --max-allowed-packet=64M --innodb-log-file-size=256M --innodb-file-per-table=1
     environment:
-      # ALLOW_EMPTY_PASSWORD is recommended only for development.
-      - ALLOW_EMPTY_PASSWORD=yes
-      - MARIADB_USER=bn_moodle
-      - MARIADB_DATABASE=bitnami_moodle
-      - MARIADB_CHARACTER_SET=utf8mb4
-      - MARIADB_COLLATE=utf8mb4_unicode_ci
+      - MYSQL_DATABASE=moodle
+      - MYSQL_USER=moodleuser
+      - MYSQL_PASSWORD=moodlepassword
+      - MYSQL_ROOT_PASSWORD=rootpassword
+    volumes:
+      - moodle_db_data:/var/lib/mysql
+
   moodle:
-    ## image: dockerio.mirror.docker.edu-sharing.com/bitnami/moodle:4.5.4
-    ## For local testing use build context:
-    build:
-       context: .
+    build: .
     ports:
-      - '11112:8080'
-      - '8443:443'
+      - "8080:80"
     environment:
-      - BITNAMI_DEBUG=true
-      - MOODLE_DATABASE_HOST=mariadb
-      - MOODLE_DATABASE_PORT_NUMBER=3306
-      - MOODLE_DATABASE_USER=bn_moodle
-      - MOODLE_DATABASE_NAME=bitnami_moodle
-      # ALLOW_EMPTY_PASSWORD is recommended only for development.
-      - ALLOW_EMPTY_PASSWORD=yes
+      - PHP_INI-memory_limit=512M
+      - APACHE_DOCUMENT_ROOT=/var/www/html
+      - MOODLE_WWWROOT=http://localhost:8080
+      - MOODLE_DB_USER=moodleuser
+      - MOODLE_DB_PASS=moodlepassword
+      - MOODLE_DB_NAME=moodle
+      - MOODLE_ADMIN_USER=admin
+      - MOODLE_ADMIN_PASS=Admin123!
+      - MOODLE_ADMIN_EMAIL=admin@example.com
+      - EDUSHARING_RENDER_DOCKER_DEPLOYMENT=true
       - EDUSHARING_WEBSERVICE_USER=rendering
       - EDUSHARING_WEBSERVICE_PASSWORD=Rendering_1
       - EDUSHARING_REPOSITORY_PROT=https
       - EDUSHARING_REPOSITORY_PORT=443
-      - EDUSHARING_REPOSITORY_HOST=repository.10-0.enterprise.edu.edu-sharing.de
+      - EDUSHARING_REPOSITORY_HOST=repository.10-0.enterprise.134.76.16.75.nip.io
       - EDUSHARING_REPOSITORY_USERNAME=admin
-      - EDUSHARING_REPOSITORY_PASSWORD=asfdasdasd
+      - EDUSHARING_REPOSITORY_PASSWORD=aaaAAA111###
       - EDUSHARING_MOODLE_HOST=localhost
       - EDUSHARING_MOODLE_HOST_ALIASES=*
       - EDUSHARING_COURSE_MAX_SIZE=1024M
+    volumes:
+      - moodle_data:/var/www/moodledata
     depends_on:
-      - mariadb
-## For local testing with volume
- ##   volumes:
- ##     - ./../../mod/edusharing:/edusharing/mod_edusharing
+      - db
+
+volumes:
+  moodle_db_data:
+  moodle_data:
