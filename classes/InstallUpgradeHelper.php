@@ -73,6 +73,8 @@ class InstallUpgradeHelper
             'mod/label:view',
             'mod/choice:view',
             'moodle/blog:view',
+            'mod/h5pactivity:view',
+            'mod/hvp:view'
         ];
         foreach ($standardallowedcaps as $cap) {
             if (!in_array($cap, $whitelist)) {
