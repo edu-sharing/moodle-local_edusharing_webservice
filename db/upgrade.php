@@ -41,6 +41,8 @@ function xmldb_local_edusharing_webservice_upgrade($oldversion) {
 
         try {
             $helper->delete_users();
+            $webserviceroleid = $helper->create_webservice_role();
+            $helper->create_webservice_user($webserviceroleid);
         } catch (exception $e) {
             error_log($e->getMessage());
         }

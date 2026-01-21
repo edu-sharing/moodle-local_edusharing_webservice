@@ -43,41 +43,12 @@ function xmldb_local_edusharing_webservice_install(){
         error_log($e->getMessage());
     }
 
-    if (! empty(getenv('EDUSHARING_RENDER_DOCKER_DEPLOYMENT'))) {
-        if (empty(getenv('EDUSHARING_WEBSERVICE_USER')) || empty(getenv('EDUSHARING_WEBSERVICE_PASSWORD'))) {
-            mtrace('Edu-Sharing web service docker deployment failed: No webservice user and/or password provided');
-            return true;
-        }
-
-        // Create user
-        $userArray = [
-            'createpassword' => false,
-            'username' => (getenv('EDUSHARING_WEBSERVICE_USER')),
-            'password' => (getenv('EDUSHARING_WEBSERVICE_PASSWORD')),
-            'firstname' => 'Rudi',
-            'lastname' => 'Renderer',
-            'email' => 'integrations@edu-sharing.net',
-            'confirmed' => 1,
-            'mnethostid' => 1
-        ];
-        try {
-            $userId = user_create_user($userArray);
-
-            // Get manager role
-            $managerrole = $DB->get_record('role', ['shortname' => 'manager'], '*', MUST_EXIST);
-            $systemcontext = context_system::instance();
-
-            // Assign missing capability to manager role
-            assign_capability('webservice/rest:use', CAP_ALLOW, $managerrole->id, $systemcontext->id, true);
-
-            // Assign manager role to created user
-            role_assign($managerrole->id, $userId, $systemcontext);
-            // Add css
-            set_config('additionalhtmlhead', '<link rel="stylesheet" href="/local/edusharing_webservice/styles.css">');
-        } catch (Exception $exception) {
-            mtrace('Web service user creation failed.');
-            mtrace_exception($exception);
-        }
+    try {
+        $serviceroleid = $helper->create_webservice_role();
+        $helper->create_webservice_user($serviceroleid);
+    } catch (exception $e) {
+        error_log($e->getMessage());
     }
+
     return true;
 }
