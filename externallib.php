@@ -156,7 +156,7 @@ class local_edusharing_webservice_external extends external_api {
                 mtrace('Course not found. Adding it to render moodle.');
             }
         } else {
-            ini_set('memory_limit', "512");
+            ini_set('memory_limit', "2048M");
         }
 
         //delete course/enrolments
@@ -177,14 +177,21 @@ class local_edusharing_webservice_external extends external_api {
             $enrol -> courseid = $courseId;
             $DB->insert_record('enrol', $enrol);
         }
+
+        if (ob_get_length()) {
+            ob_get_clean();
+        }
         return json_encode($courseId);
     }
 
     public static function cleanup($nodeId) {
         global $DB;
-        $course = $DB -> get_record('course', ['idnumber' => $nodeId]);
-        $DB -> delete_records('course', ['idnumber' => $nodeId]);
-        $DB -> delete_records('enrol', ['courseid' => $course->id]);
+        try {
+            $course = $DB -> get_record('course', ['idnumber' => $nodeId], '*', MUST_EXIST);
+            $DB -> delete_records('course', ['idnumber' => $nodeId]);
+            $DB -> delete_records('enrol', ['courseid' => $course->id]);
+        } catch (Exception $e) {
+        }
     }
 
     public static function createempty($nodeId, $categoryId, $title) {
@@ -213,7 +220,7 @@ class local_edusharing_webservice_external extends external_api {
                 return json_encode($course->id);
             } catch (Exception $e) {}
         } else {
-            ini_set('memory_limit', "512M");
+            ini_set('memory_limit', "2048M");
         }
         $unique = uniqid();
 
@@ -317,8 +324,7 @@ class local_edusharing_webservice_external extends external_api {
     public static function unpackFile($path) {
 
         global $CFG;
-
-        $coursePath = $CFG -> dataroot . '/temp/backup/' .$path;
+        $coursePath = $CFG->tempdir . '/backup/' . $path;
         try {
             $zip = new ZipArchive;
             $res = $zip -> open($coursePath . '/course.mbz');
@@ -351,8 +357,13 @@ class local_edusharing_webservice_external extends external_api {
             );
         }
 
-        $savePath = $CFG -> dataroot . '/temp/backup/' .$path;
-        mkdir($savePath, 0744);
+        $backupbase = make_temp_directory('backup');
+        $savePath = rtrim($backupbase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $path;
+
+        if (!check_dir_exists($savePath, true, true)) {
+            error_log('Failed to create temp backup dir: ' . $savePath);
+            return false;
+        }
 
         try {
             $timestamp = round(microtime(true) * 1000);
