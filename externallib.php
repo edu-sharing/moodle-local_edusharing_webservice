@@ -159,6 +159,12 @@ class local_edusharing_webservice_external extends external_api {
             ini_set('memory_limit', "2048M");
         }
 
+        try {
+            $course = $DB -> get_record('course', ['idnumber' => $nodeId], '*', MUST_EXIST);
+            return json_encode($course->id);
+        } catch (Exception $e) {
+        }
+
         //delete course/enrolments
         self::cleanup($nodeId);
 
