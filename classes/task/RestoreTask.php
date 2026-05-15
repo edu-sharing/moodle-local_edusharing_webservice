@@ -2,16 +2,16 @@
 
 namespace local_edusharing_webservice\task;
 
+use core\task\asynchronous_restore_task;
 use Exception;
-use local_edusharing_webservice\RenderMoodleService;
+use local_edusharing_webservice\CourseRestorationService;
 use local_edusharing_webservice\RestoreStatus;
 
-class RestoreTask extends \core\task\asynchronous_restore_task
-{
-    private RenderMoodleService $renderMoodleService;
+class RestoreTask extends asynchronous_restore_task {
+    private CourseRestorationService $renderMoodleService;
 
     public function __construct() {
-        $this->renderMoodleService = new RenderMoodleService();
+        $this->renderMoodleService = new CourseRestorationService();
     }
 
     public function get_component(): string {

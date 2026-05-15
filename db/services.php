@@ -3,13 +3,18 @@
 $services = [
     'edusharing-webservice' => [                           //the name of the web service
         'functions'          => [                                  //web service functions of this service
+            // Legacy function names (externallib)
             'local_edusharing_getcategories',
             'local_edusharing_restore',
             'local_edusharing_createempty',
             'local_edusharing_handleuser',
             'local_edusharing_scorm',
             'local_edusharing_ping',
-            'local_edusharing_restore_course'
+            // New function names (external)
+            'local_edusharing_restore_course',
+            'local_edusharing_status',
+            'local_edusharing_scorm_course',
+            'local_edusharing_user'
         ],
         'requiredcapability' => '',                             //if set, the web service user need this capability to access any function of this service. For example: 'some/capability:specified'
         'restrictedusers'    => 0,                                  //if enabled, the Moodle administrator must link some user to this service into the administration
@@ -68,8 +73,23 @@ $functions = [
         'capabilities' => '',  // List the capabilities used in the function (missing capabilities are displayed for authorised users and also for manually created tokens in the web interface, this is just informative).
     ],
     'local_edusharing_restore_course' => [
-        'classname'   => 'local_edusharing_webservice\external\RestoreCourse',
+        'classname'   => 'local_edusharing_webservice\external\Course',
         'description' => 'Restore course or activity from an edu-sharing repository to moodle.',
+        'type'        => 'write',
+    ],
+    'local_edusharing_status'        => [
+        'classname'   => 'local_edusharing_webservice\external\Status',
+        'description' => 'Get the status of a restore task.',
+        'type'        => 'read',
+    ],
+    'local_edusharing_scorm_course'         => [
+        'classname'   => 'local_edusharing_webservice\external\Scorm',
+        'description' => 'Create a new SCORM course from an edu-sharing repository.',
+        'type'        => 'write',
+    ],
+    'local_edusharing_user' => [
+        'classname'   => 'local_edusharing_webservice\external\User',
+        'description' => 'Get or create user, enrol them in the course and return a token.',
         'type'        => 'write',
     ]
 ];

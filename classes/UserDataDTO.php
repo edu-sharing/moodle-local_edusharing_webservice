@@ -15,29 +15,19 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 declare(strict_types=1);
+
 namespace local_edusharing_webservice;
 
-use Exception;
-use mod_edusharing\EduSharingService;
-use mod_edusharing\UtilityFunctions;
+class UserDataDTO {
+    public string $username;
+    public string $email;
+    public string $firstname;
+    public string $lastname;
 
-abstract class RenderMoodleService
-{
-    protected UtilityFunctions $utils;
-    protected EduSharingService $eduservice;
-
-    public function __construct() {
-        $this->utils = new UtilityFunctions();
-        $this->eduservice = new EduSharingService();
-    }
-
-    protected function get_existing_course_id(string $nodeid): ?int {
-        global $DB;
-        try {
-            $course = $DB->get_record('course', ['idnumber' => $nodeid], MUST_EXIST);
-            return $course->id;
-        } catch (Exception) {
-            return null;
-        }
+    public function __construct(string $username, string $email, string $firstname, string $lastname) {
+        $this->username = $username;
+        $this->email = $email;
+        $this->firstname = $firstname;
+        $this->lastname = $lastname;
     }
 }

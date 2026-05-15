@@ -18,13 +18,16 @@ declare(strict_types=1);
 
 namespace local_edusharing_webservice\external;
 
+use core\exception\invalid_parameter_exception;
+use core\exception\moodle_exception;
+use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
-use local_edusharing_webservice\RenderMoodleService;
+use dml_exception;
+use local_edusharing_webservice\ScormRestorationService;
 
-class RestoreCourse extends \core_external\external_api
-{
+class Scorm extends external_api {
     /**
      * Function execute_parameters
      *
@@ -39,7 +42,7 @@ class RestoreCourse extends \core_external\external_api
             ),
             'title' => new external_value(
                 type: PARAM_TEXT,
-                desc: 'Title of the course',
+                desc: 'Title of the content',
                 required: VALUE_REQUIRED
             ),
             'category' => new external_value(
@@ -53,38 +56,36 @@ class RestoreCourse extends \core_external\external_api
 
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
-            'restoreId' => new external_value(
-                type: PARAM_INT,
-                desc: 'Restore ID referring to the edu_restore table',
-                required: VALUE_OPTIONAL,
-                allownull: true
-            ),
             'courseId' => new external_value(
                 type: PARAM_INT,
                 desc: 'Course ID',
-                required: VALUE_OPTIONAL,
-                allownull: true
+                required: VALUE_REQUIRED,
             ),
         ]);
     }
 
-    public static function execute($nodeId, $title, $category): array {
-        $service = new RenderMoodleService();
-
+    /**
+     * @throws dml_exception
+     * @throws invalid_parameter_exception
+     * @throws moodle_exception
+     */
+    public static function execute(string $nodeId, string $title, int $category): array {
         self::validate_parameters(self::execute_parameters(), [
             'nodeId' => $nodeId,
             'title' => $title,
             'category' => $category
         ]);
 
-        $result = $service->triggerRestore(
-            nodeId: $nodeId,
+        $service = new ScormRestorationService(
+            categoryid: $category,
             title: $title,
-            category: $category
+            nodeid: $nodeId
         );
+
+        $result = $service->scorm();
         return [
-            'courseId' => $result->courseId,
-            'restoreId' => $result->restoreId,
+            'courseId' => $result,
         ];
     }
+
 }
