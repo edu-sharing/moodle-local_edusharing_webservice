@@ -6,6 +6,7 @@ use core\task\asynchronous_restore_task;
 use Exception;
 use local_edusharing_webservice\CourseRestorationService;
 use local_edusharing_webservice\RestoreStatus;
+use local_edusharing_webservice\UserException;
 
 class RestoreTask extends asynchronous_restore_task {
     private CourseRestorationService $renderMoodleService;
@@ -28,12 +29,12 @@ class RestoreTask extends asynchronous_restore_task {
 
         try {
             $customData = $this->get_custom_data();
-            if (empty($customData['restoreid']) || empty($customData['category']) || empty($customData['title'])) {
+            if (empty($customData->restoreid) || empty($customData->category) || empty($customData->title)) {
                 throw new Exception('Invalid restore custom data provided to restore task');
             }
             $restore = $DB->get_record(
                 table: 'edu_restore',
-                conditions: ['id' => $customData['restoreid']],
+                conditions: ['id' => $customData->restoreid],
                 strictness: MUST_EXIST
             );
         } catch (Exception $exception) {
@@ -47,7 +48,7 @@ class RestoreTask extends asynchronous_restore_task {
             $DB->update_record('edu_restore', $restore);
             $controller = $this->renderMoodleService->prepareRestore(
                 nodeId: $restore->nodeid,
-                category: $restore->category,
+                category: $customData->category,
             );
             // Overwrite custom data for further use in parent class
             $this->set_custom_data(['backupid' => $controller->get_restoreid()]);
@@ -55,20 +56,33 @@ class RestoreTask extends asynchronous_restore_task {
             $this->renderMoodleService->finalizeCourse(
                 courseId: $controller->get_courseid(),
                 nodeId: $restore->nodeid,
-                title: $customData['title']
+                title: $customData->title
             );
             $restore->status = RestoreStatus::SUCCESS;
             $restore->lastmodified = time();
+            $restore->courseid = $this->renderMoodleService->getCourseId();
             $DB->update_record('edu_restore', $restore);
+            $this->renderMoodleService->cleanup();
         } catch (Exception $exception) {
             $restore->status = RestoreStatus::FAILURE;
             $restore->lastmodified = time();
-            $restore->message = $exception->getMessage();
+            $restore->message = sprintf(
+                "%s: %s\nFile: %s:%d\n\nStack trace:\n%s",
+                get_class($exception),
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine(),
+                $exception->getTraceAsString()
+            );
+            if ($exception instanceof UserException) {
+                $restore->usermessage = $exception->getExternalMessage();
+            }
             try {
                 $DB->update_record('edu_restore', $restore);
             } catch (Exception $e) {
                 mtrace('Failed to update restore status due to DB error: ' . $e->getMessage());
             }
+            $this->renderMoodleService->rollback();
         }
     }
 }

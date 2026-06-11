@@ -36,7 +36,7 @@ class UserService {
     public function __construct() {
         global $DB;
         $this->utils = new UtilityFunctions();
-        $this->restrictedroleid = $DB->get_field('role', 'id', ['shortname' => 'restrictedrenderinguser']);
+        $this->restrictedroleid = $DB->get_field(table:'role', return: 'id', conditions: ['shortname' => 'restrictedrenderinguser']);
     }
 
     /**
@@ -45,9 +45,9 @@ class UserService {
      * @throws moodle_exception
      */
     public function get_token(UserDataDTO $user, int $courseid): string {
-        $userid = $this->get_or_create_user($user);
-        $this->enrol_user($userid, $courseid);
-        return $this->generate_token($userid, $courseid);
+        $userid = $this->get_or_create_user(userData: $user);
+        $this->enrol_user(userId: $userid, courseid: $courseid);
+        return $this->generate_token(userid: $userid, courseid: $courseid);
     }
 
     /**
@@ -56,14 +56,14 @@ class UserService {
      */
     private function get_or_create_user(UserDataDTO $userData): int {
         global $DB;
-        $user = $DB->get_record("user", ["username" => $userData->username]);
+        $user = $DB->get_record(table: "user", conditions: ["username" => $userData->username]);
         if(empty($user)) {
             $user = create_user_record($user->username, uniqid());
             $user->firstname = $userData->firstname;
             $user->lastname = $userData->lastname;
             $user->email = $userData->email;
-            $DB->update_record('user', $user);
-            role_assign($this->restrictedroleid, $user->id, context_system::instance()->id);
+            $DB->update_record(table: 'user', dataobject: $user);
+            role_assign(roleid: $this->restrictedroleid, userid: $user->id, contextid: context_system::instance()->id);
         }
         return $user->id;
     }
@@ -77,8 +77,8 @@ class UserService {
      */
     private function enrol_user(int $userid, int $courseid): void {
         $context = context_course::instance($courseid);
-        if (!is_enrolled($context, $userid)) {
-            if (!enrol_try_internal_enrol($courseid, $userid, $this->restrictedroleid, time())) {
+        if (!is_enrolled(context: $context, user: $userid)) {
+            if (!enrol_try_internal_enrol(courseid: $courseid, userid: $userid, roleid: $this->restrictedroleid, timestart: time())) {
                 throw new moodle_exception('unabletoenrolerrormessage', 'langsourcefile');
             }
         }

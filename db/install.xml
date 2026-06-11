@@ -22,6 +22,8 @@
                 <FIELD NAME="nodeid" SEQUENCE="false" TYPE="char" LENGTH="36" NOTNULL="true"/>
                 <FIELD NAME="status" SEQUENCE="false" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="queued"/>
                 <FIELD NAME="message" SEQUENCE="false" TYPE="text" NOTNULL="false"/>
+                <FIELD NAME="usermessage" SEQUENCE="false" TYPE="text" NOTNULL="false"/>
+                <FIELD NAME="courseid" SEQUENCE="false" TYPE="int" LENGTH="10" NOTNULL="false"/>
                 <FIELD NAME="lastmodified" SEQUENCE="false" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
             </FIELDS>
             <KEYS>

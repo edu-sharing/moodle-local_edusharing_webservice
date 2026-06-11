@@ -19,14 +19,17 @@ declare(strict_types=1);
 namespace local_edusharing_webservice;
 
 use backup;
+use base_plan_exception;
+use base_setting_exception;
+use core\exception\coding_exception;
 use core\task\manager;
+use core_plugin_manager;
 use dml_exception;
+use Exception;
 use local_edusharing_webservice\task\RestoreTask;
-use mod_edusharing\EduSharingService;
-use mod_edusharing\UtilityFunctions;
 use PharData;
-use PhpOffice\PhpSpreadsheet\Exception;
 use progressive_parser;
+use progressive_parser_exception;
 use restore_controller;
 use restore_controller_exception;
 use restore_dbops;
@@ -45,9 +48,10 @@ class CourseRestorationService extends RenderMoodleService {
     public string $tempDir;
     private ?int $adminId = null;
     private string $testPrefix = 'test_';
+    private ?int $courseId = null;
 
     public function __construct() {
-        parent::__construct(new UtilityFunctions(), new EduSharingService());
+        parent::__construct();
         $this->tempDir = uniqid();
     }
 
@@ -68,64 +72,87 @@ class CourseRestorationService extends RenderMoodleService {
      */
     public function course(string $nodeId, string $title, int $category): RestoreCourseDTO {
         global $DB;
-        $existing_course_id = $this->get_existing_course_id($nodeId);
+        $existing_course_id = $this->get_existing_course_id(nodeid: $nodeId);
         if ($existing_course_id !== null) {
             return new RestoreCourseDTO(courseId: $existing_course_id, restoreId: null);
         }
-        $restore = $DB->get_record('edu_restore', ['nodeid' => $nodeId]);
+        $restore = $DB->get_record(table: 'edu_restore', conditions: ['nodeid' => $nodeId]);
         // Todo: Implement time based restore status invalidation (if job is running for longer than x minutes -> reforce)
         if ($restore !== false) {
             return new RestoreCourseDTO(courseId: null, restoreId: $restore->id);
         }
 
-        $restoreId = $DB->insert_record('edu_restore', ['nodeid' => $nodeId, 'lastmodified' => time()]);
+        $restoreId = $DB->insert_record(table: 'edu_restore', dataobject: ['nodeid' => $nodeId, 'lastmodified' => time()]);
         $task = new RestoreTask();
         $task->set_custom_data(
-            [
+            customdata: [
                 'restoreid' => $restoreId,
                 'title' => $title,
                 'category' => $category
             ]
         );
-        $task->set_userid($this->getAdminId());
-        manager::queue_adhoc_task($task);
+        $task->set_userid(userid: $this->getAdminId());
+        manager::queue_adhoc_task(task: $task);
         return new RestoreCourseDTO(courseId: null, restoreId: $restoreId);
     }
 
     /**
      * @throws dml_exception
-     * @throws \progressive_parser_exception
+     * @throws progressive_parser_exception
      * @throws restore_controller_exception
+     * @throws base_plan_exception
+     * @throws base_setting_exception
+     * @throws UserException
+     * @throws coding_exception
+     * @throws Exception
      */
     public function prepareRestore(string $nodeId, int $category): restore_controller {
         global $CFG;
         require_once($CFG->libdir . '/adminlib.php');
         require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
         require_once($CFG->dirroot . '/backup/util/includes/backup_includes.php');
-        $this->getNodeContent($nodeId);
-        $this->unpackFile();
+        $this->getNodeContent(nodeId: $nodeId);
+        $this->unpackFile(nodeId: $nodeId);
         $this->checkBackupFormat();
-        $details = $this->getInfo($this->getFilePath());
+        $details = $this->getInfo(dir: $this->getFilePath());
+        if (! empty($details->missingPlugins)) {
+            throw new UserException(
+                internalMessage: 'Missing plugins: ' . implode(', ', $details->missingPlugins),
+                externalMessage: get_string('error_missing_plugins', 'local_edusharing_webservice')
+                . ' ' . implode(', ', $details->missingPlugins),
+            );
+        }
         if (!in_array($details->type, [backup::TYPE_1ACTIVITY, backup::TYPE_1COURSE])) {
             throw new Exception('Backup type'. $details->type . 'not supported');
         }
         $isActivity = $details->type === backup::TYPE_1ACTIVITY;
-        $courseId  = restore_dbops::create_new_course('', '', $category);
+        $this->courseId  = restore_dbops::create_new_course(fullname: '', shortname: '', categoryid: $category);
         $target = $isActivity ? backup::TARGET_EXISTING_ADDING : backup::TARGET_NEW_COURSE;
 
-        return new restore_controller(
-            tempdir: $this->getFilePath(),
-            courseid: $courseId,
+        $controller = new restore_controller(
+            tempdir: $this->tempDir,
+            courseid: $this->courseId,
             interactive: backup::INTERACTIVE_NO,
             mode: backup::MODE_ASYNC,
             userid: $this->getAdminId(),
             target: $target
         );
+        $controller->get_plan()->get_setting('users')->set_value(false);
+        $controller->get_plan()->get_setting('role_assignments')->set_value(false);
+        $controller->get_plan()->get_setting('userscompletion')->set_value(false);
+        $controller->get_plan()->get_setting('logs')->set_value(false);
+        $controller->get_plan()->get_setting('grade_histories')->set_value(false);
+        $controller->get_plan()->get_setting('comments')->set_value(false);
+        $precheckok = $controller->execute_precheck();
+        if (!$precheckok) {
+            throw new RuntimeException('Restore precheck failed: ' . json_encode($controller->get_precheck_results()));
+        }
+        return $controller;
     }
 
     /**
      * @throws dml_exception
-     * @throws \Exception
+     * @throws Exception
      */
     private function getNodeContent(string $nodeId): void {
         global $CFG;
@@ -133,25 +160,25 @@ class CourseRestorationService extends RenderMoodleService {
         require_once($CFG->libdir . '/setuplib.php');
 
         $savePath = $this->getFilePath();
-        $localFile = $savePath . '/course.mbz';
+        mkdir($savePath, 0744, true);
+        $localFile = $savePath . '/' . $nodeId .'.mbz';
 
-        if (str_starts_with($nodeId, $this->testPrefix)) {
-            $testFile = $CFG->dirroot . '/test_files/' . basename($nodeId);
-            if (is_readable($testFile)) {
-                if (!copy($testFile, $localFile)) {
-                    throw new \RuntimeException("Failed to copy local test backup file: $testFile");
+        if (str_starts_with(haystack: $nodeId, needle: $this->testPrefix)) {
+            $testFile = $CFG->dirroot . '/test_data/zoerr1.mbz';
+            if (is_readable(filename: $testFile)) {
+                if (!copy(from: $testFile, to: $localFile)) {
+                    throw new RuntimeException("Failed to copy local test backup file: $testFile");
                 }
                 return;
             }
         }
 
-        mkdir($savePath, 0744, true);
         $timestamp = round(microtime(true) * 1000);
-        $contentUrl = rtrim($this->utils->get_internal_url(), '/') . '/content';
-        $contentUrl .= '?appId=' . get_config('edusharing', 'application_appid');
-        $contentUrl .= '&nodeId=' . $nodeId;
+        $contentUrl = rtrim(string: $this->utils->get_internal_url(), characters: '/') . '/content';
+        $contentUrl .= '?appId=' . get_config(plugin: 'edusharing', name: 'application_appid');
+        $contentUrl .= '&ntestodeId=' . $nodeId;
         $contentUrl .= '&timeStamp=' . $timestamp;
-        $contentUrl .= '&authToken=' . $this->eduservice->sign($nodeId . $timestamp);
+        $contentUrl .= '&authToken=' . $this->eduservice->sign(input: $nodeId . $timestamp);
         $contentUrl .= '&signedAlg=' . $this->eduservice->get_signing_algorithm();
 
         $opts    = [
@@ -165,31 +192,31 @@ class CourseRestorationService extends RenderMoodleService {
                 "verify_peer_name" => false,
             ]
         ];
-        $context = stream_context_create($opts);
+        $context = stream_context_create(options: $opts);
 
-        $remoteHandle = fopen($contentUrl, "rb", false, $context);
+        $remoteHandle = fopen(filename: $contentUrl, mode: 'rb', context: $context);
         if ($remoteHandle === false) {
-            throw new \RuntimeException("Failed to open remote URL: $contentUrl");
+            throw new RuntimeException("Failed to open remote URL: $contentUrl");
         }
 
-        $localHandle = fopen($localFile, "wb");
+        $localHandle = fopen(filename: $localFile, mode: "wb");
         if ($localHandle === false) {
-            fclose($remoteHandle);
-            throw new \RuntimeException("Failed to open local file for writing: $localFile");
+            fclose(stream: $remoteHandle);
+            throw new RuntimeException("Failed to open local file for writing: $localFile");
         }
 
-        while (!feof($remoteHandle)) {
-            $chunk = fread($remoteHandle, 8192);
+        while (!feof(stream: $remoteHandle)) {
+            $chunk = fread(stream: $remoteHandle, length: 8192);
             if ($chunk === false) {
                 fclose($remoteHandle);
                 fclose($localHandle);
-                throw new \RuntimeException("Error reading from remote stream");
+                throw new RuntimeException("Error reading from remote stream");
             }
             $written = fwrite($localHandle, $chunk);
             if ($written === false) {
                 fclose($remoteHandle);
                 fclose($localHandle);
-                throw new \RuntimeException("Error writing to local file: $localFile");
+                throw new RuntimeException("Error writing to local file: $localFile");
             }
         }
 
@@ -197,20 +224,20 @@ class CourseRestorationService extends RenderMoodleService {
         fclose($localHandle);
     }
 
-    private function unpackFile(): void {
+    private function unpackFile(string $nodeId): void {
         $coursePath = $this->getFilePath();
         $zip        = new ZipArchive;
-        $res        = $zip->open($coursePath . '/course.mbz');
+        $res        = $zip->open($coursePath . '/' . $nodeId . '.mbz');
 
         if ($res === true) {
             $zip->extractTo($coursePath);
             $zip->close();
         } else {
             // decompress from gz
-            $p = new PharData($coursePath . '/course.mbz');
+            $p = new PharData($coursePath . '/'. $nodeId. '.mbz');
             $p->decompress();
             // unarchive from the tar
-            $phar = new PharData($coursePath . '/course.tar');
+            $phar = new PharData($coursePath . '/' . $nodeId. '.tar');
             $phar->extractTo($coursePath);
         }
     }
@@ -247,7 +274,8 @@ class CourseRestorationService extends RenderMoodleService {
      *
      * @param string $dir the directory where the moodle_backup.xml file is located
      *
-     * @throws \progressive_parser_exception
+     * @throws progressive_parser_exception
+     * @throws Exception
      */
     private function getInfo(string $dir): CourseInfoDTO {
         $file = $dir . '/moodle_backup.xml';
@@ -304,22 +332,28 @@ class CourseRestorationService extends RenderMoodleService {
      *
      * @param string $dir The extracted backup directory.
      * @return string[]
+     * @throws Exception
      */
     private function getQuestionTypeComponents(string $dir): array {
         $components = [];
 
-        foreach (glob($dir . '/**/questions.xml') ?: [] as $file) {
-            $xml = simplexml_load_file($file);
-            if ($xml === false) {
+        $fileName = $dir . '/questions.xml';
+        if (!file_exists($fileName)) {
+            return [];
+        }
+
+        $xml = simplexml_load_file($fileName);
+        if ($xml === false) {
+            throw new Exception("Failed to load question XML file: $fileName");
+        }
+
+        foreach ($xml->xpath('//question/qtype') ?: [] as $qtype) {
+            $qtype = trim((string) $qtype);
+            if ($qtype === '') {
                 continue;
             }
 
-            foreach ($xml->xpath('//qtype') ?: [] as $qtype) {
-                $qtype = trim((string) $qtype);
-                if ($qtype !== '') {
-                    $components[] = 'qtype_' . $qtype;
-                }
-            }
+            $components[] = 'qtype_' . $qtype;
         }
 
         return array_values(array_unique($components));
@@ -362,7 +396,7 @@ class CourseRestorationService extends RenderMoodleService {
         $thirdParty = [];
         $missing = [];
         foreach ($plugins as $plugin) {
-            $plugininfo = \core_plugin_manager::instance()->get_plugin_info($plugin);
+            $plugininfo = core_plugin_manager::instance()->get_plugin_info($plugin);
             if ($plugininfo === null) {
                 $missing[] = $plugin;
                 $thirdParty[] = $plugin;
@@ -386,7 +420,7 @@ class CourseRestorationService extends RenderMoodleService {
         if ($admin === false) {
             throw new Exception('Admin user not found');
         }
-        $this->adminId = $admin->id;
+        $this->adminId = (int)$admin->id;
         return $this->adminId;
     }
 
@@ -396,15 +430,15 @@ class CourseRestorationService extends RenderMoodleService {
     public function finalizeCourse(int $courseId, string $nodeId, string $title): void {
         global $DB;
         $updCourse = ['id' => $courseId, 'fullname' => $title, 'shortname' => $title, 'idnumber' => $nodeId];
-        $DB->update_record('course', $updCourse, $bulk = false);
+        $DB->update_record(table: 'course', dataobject: $updCourse);
 
         //activity backups do not set enrolement method on restore, so do this manually
-        $enrolId = $DB->get_record('enrol', ['courseid' => $courseId, 'enrol' => 'manual']);
+        $enrolId = $DB->get_record(table: 'enrol', conditions: ['courseid' => $courseId, 'enrol' => 'manual']);
         if (empty($enrolId)) {
             $enrol           = new stdClass();
             $enrol->enrol    = 'manual';
             $enrol->courseid = $courseId;
-            $DB->insert_record('enrol', $enrol);
+            $DB->insert_record(table: 'enrol', dataobject: $enrol);
         }
     }
 
@@ -413,9 +447,34 @@ class CourseRestorationService extends RenderMoodleService {
      *
      * @throws dml_exception
      */
-    public function getStatus(int $restoreid): string {
+    public function getStatus(int $restoreid): StatusDTO {
         global $DB;
-        $restore = $DB->get_record('edu_restore', ['id' => $restoreid], MUST_EXIST);
-        return $restore->status;
+        $restore = $DB->get_record(table: 'edu_restore', conditions: ['id' => $restoreid], strictness: MUST_EXIST);
+        return new StatusDTO(
+            status: $restore->status,
+            userMessage: $restore->usermessage,
+            internalMessage: $restore->message,
+            courseId: $restore->courseid,
+        );
+    }
+
+    public function cleanup(): void {
+        remove_dir($this->getFilePath());
+    }
+
+    public function rollback(): void {
+        $this->cleanup();
+        if ($this->courseId !== null) {
+            try {
+                $course = $this->courseId;
+                delete_course($course, false);
+            } catch (Exception) {
+                mtrace('Course not found');
+            }
+        }
+    }
+
+    public function getCourseId(): ?int {
+        return $this->courseId;
     }
 }

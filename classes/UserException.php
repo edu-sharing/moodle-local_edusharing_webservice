@@ -15,29 +15,28 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 declare(strict_types=1);
+
 namespace local_edusharing_webservice;
 
 use Exception;
-use mod_edusharing\EduSharingService;
-use mod_edusharing\UtilityFunctions;
+use Throwable;
 
-abstract class RenderMoodleService
+class UserException extends Exception
 {
-    protected UtilityFunctions $utils;
-    protected EduSharingService $eduservice;
+    private string $externalMessage;
 
-    public function __construct() {
-        $this->utils = new UtilityFunctions();
-        $this->eduservice = new EduSharingService();
+    public function __construct(
+        string $internalMessage,
+        string $externalMessage,
+        int $code = 0,
+        ?Throwable $previous = null
+    ) {
+        parent::__construct($internalMessage, $code, $previous);
+        $this->externalMessage = $externalMessage;
     }
 
-    protected function get_existing_course_id(string $nodeid): ?int {
-        global $DB;
-        try {
-            $course = $DB->get_record(table: 'course', conditions: ['idnumber' => $nodeid], strictness: MUST_EXIST);
-            return $course->id;
-        } catch (Exception) {
-            return null;
-        }
+    public function getExternalMessage(): string
+    {
+        return $this->externalMessage;
     }
 }

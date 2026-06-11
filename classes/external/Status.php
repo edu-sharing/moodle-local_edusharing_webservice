@@ -53,6 +53,24 @@ class Status extends external_api {
                 type: PARAM_TEXT,
                 desc: 'Current restore job status',
             ),
+            'userMessage' => new external_value(
+                type: PARAM_TEXT,
+                desc: 'User-friendly public message related to the restore status',
+                required: VALUE_OPTIONAL,
+                allownull: true
+            ),
+            'internalMessage' => new external_value(
+                type: PARAM_TEXT,
+                desc: 'Technical message for developers and administrators',
+                required: VALUE_OPTIONAL,
+                allownull: true
+            ),
+            'courseId' => new external_value(
+                type: PARAM_INT,
+                desc: 'Course ID associated with the restore job',
+                required: VALUE_OPTIONAL,
+                allownull: true
+            )
         ]);
     }
 
@@ -65,6 +83,13 @@ class Status extends external_api {
         self::validate_parameters(self::execute_parameters(), [
             'restoreId' => $restoreId,
         ]);
-        return ['status' => $service->getStatus($restoreId)];
+        $status = $service->getStatus($restoreId);
+        return [
+            'status' => $status->status,
+            'userMessage' => $status->userMessage,
+            'internalMessage' => $status->internalMessage,
+            'courseId' => $status->courseId,
+        ];
+
     }
 }

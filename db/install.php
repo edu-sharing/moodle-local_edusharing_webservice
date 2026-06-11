@@ -9,18 +9,6 @@ require_once $CFG->dirroot."/lib/moodlelib.php";
 
 function xmldb_local_edusharing_webservice_install(){
     global $DB;
-    $dbFamily = $DB->get_dbfamily();
-    if($dbFamily === 'mysql') {
-        $query = 'ALTER TABLE ' . $DB->get_prefix() . 'scorm MODIFY COLUMN reference VARCHAR(1000)';
-        $DB->execute($query);
-        $query = 'ALTER TABLE ' . $DB->get_prefix() . 'files MODIFY COLUMN filename VARCHAR(1000)';
-        $DB->execute($query);
-    } else if($dbFamily === 'postgres') {
-        $query = 'ALTER TABLE ' . $DB->get_prefix() . 'scorm ALTER COLUMN reference TYPE varchar(1000)';
-        $DB->execute($query);
-        $query = 'ALTER TABLE ' . $DB->get_prefix() . 'files ALTER COLUMN filename TYPE  varchar(1000)';
-        $DB->execute($query);
-    }
 
     set_config('enablewebservices', 1);
     set_config('webserviceprotocols', 'rest');
@@ -29,6 +17,18 @@ function xmldb_local_edusharing_webservice_install(){
 
     $systemcontext = context_system::instance();
     try {
+        $dbFamily = $DB->get_dbfamily();
+        if($dbFamily === 'mysql') {
+            $query = 'ALTER TABLE ' . $DB->get_prefix() . 'scorm MODIFY COLUMN reference VARCHAR(1000)';
+            $DB->execute($query);
+            $query = 'ALTER TABLE ' . $DB->get_prefix() . 'files MODIFY COLUMN filename VARCHAR(256)';
+            $DB->execute($query);
+        } else if($dbFamily === 'postgres') {
+            $query = 'ALTER TABLE ' . $DB->get_prefix() . 'scorm ALTER COLUMN reference TYPE varchar(1000)';
+            $DB->execute($query);
+            $query = 'ALTER TABLE ' . $DB->get_prefix() . 'files ALTER COLUMN filename TYPE  varchar(256)';
+            $DB->execute($query);
+        }
         $scormrecords = $DB->get_records('scorm');
         foreach ($scormrecords as $record) {
             $record->skipview ='2';
@@ -78,15 +78,35 @@ function xmldb_local_edusharing_webservice_install(){
                 role_assign($restrictedRoleId, $user->id, $systemcontext);
             }
         }
+        // Create web service user
+        $webServiceUserRole = create_role(
+            'Rendering Web Service User',
+            'renderingwebserviceuser',
+            'The role used by the edu-sharing web service to render courses'
+        );
+
+        set_role_contextlevels($webServiceUserRole, [CONTEXT_SYSTEM]);
+
+        $webServiceUserCaps = [
+            'webservice/rest:use',
+            'moodle/webservice:createtoken'
+        ];
+        foreach ($webServiceUserCaps as $cap) {
+            assign_capability($cap, CAP_ALLOW, $webServiceUserRole, $systemcontext, true);
+        }
     } catch (exception $e) {
         error_log($e->getMessage());
     }
 
-    if (! empty(getenv('EDUSHARING_RENDER_DOCKER_DEPLOYMENT'))) {
+    if (isset($webServiceUserRole) && ! empty(getenv('EDUSHARING_RENDER_DOCKER_DEPLOYMENT'))) {
         if (empty(getenv('EDUSHARING_WEBSERVICE_USER')) || empty(getenv('EDUSHARING_WEBSERVICE_PASSWORD'))) {
             mtrace('Edu-Sharing web service docker deployment failed: No webservice user and/or password provided');
             return true;
         }
+
+        // Set cron settings
+        set_config('cronclionly', '0');
+        set_config('cronremotepassword', getenv('EDUSHARING_WEBSERVICE_PASSWORD'));
 
         // Create user
         $userArray = [
@@ -101,37 +121,7 @@ function xmldb_local_edusharing_webservice_install(){
         ];
         try {
             $userId = user_create_user($userArray);
-
-            // Create web service user
-            $webServiceUser = create_role(
-                'Rendering Web Service User',
-                'renderingwebserviceuser',
-                'The user used by the edu-sharing web service to render courses'
-            );
-
-            set_role_contextlevels($webServiceUser, [CONTEXT_SYSTEM]);
-
-            $webServiceUserCaps = [
-                'moodle/restore:restoreactivity',
-                'moodle/restore:restorecourse',
-                'moodle/restore:restoresection',
-                'moodle/restore:restoretargetimport',
-                'moodle/restore:uploadfile',
-                'moodle/restore:viewautomatedfilearea',
-                'webservice/rest:use',
-                'mod/hvp:addinstance',
-                'mod/hvp:installrecommendedh5plibraries',
-                'mod/hvp:userestrictedlibraries',
-                'moodle/h5p:deploy',
-                'moodle/h5p:updatelibraries',
-                'mod/scorm:addinstance',
-                'moodle/webservice:createtoken'
-            ];
-            foreach ($webServiceUserCaps as $cap) {
-                assign_capability($cap, CAP_ALLOW, $webServiceUser, $systemcontext, true);
-            }
-
-            role_assign($webServiceUser, $userId, $systemcontext);
+            role_assign($webServiceUserRole, $userId, $systemcontext);
 
             // Add css
             set_config('additionalhtmlhead', '<link rel="stylesheet" href="/local/edusharing_webservice/styles.css">');
