@@ -25,6 +25,6 @@
 defined('MOODLE_INTERNAL') || die();
 $plugin->component = 'local_edusharing_webservice';
 $plugin->dependencies = ['mod_edusharing'  => 2025072300];
-$plugin->version  = 2026051901;
-$plugin->maturity = MATURITY_BETA;
-$plugin->release = '10.2_BETA';
+$plugin->version  = 2026061100;
+$plugin->maturity = MATURITY_STABLE;
+$plugin->release = '10.1.4';

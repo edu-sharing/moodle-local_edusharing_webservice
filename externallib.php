@@ -11,6 +11,7 @@
 global $CFG;
 
 use mod_edusharing\EduSharingService;
+use mod_edusharing\UtilityFunctions;
 
 require_once($CFG->libdir . "/externallib.php");
 require_once ($CFG->dirroot . '/course/lib.php');
@@ -75,7 +76,6 @@ class local_edusharing_webservice_external extends external_api {
     private static function generateToken($userid, $courseid) {
 
         global $DB;
-        $service = new EduSharingService();
 
         $hash = new stdClass;
         $hash -> userid = (int)$userid;
@@ -87,11 +87,7 @@ class local_edusharing_webservice_external extends external_api {
 
         $hash = json_encode($hash);
         $token = self::encrypt($hash);
-        if ($service->has_rendering_2()) {
-            $token = base64_encode($token);
-        } else {
-            $token = base64_encode($token);
-        }
+        $token = base64_encode($token);
 
         return $token;
     }
@@ -131,6 +127,18 @@ class local_edusharing_webservice_external extends external_api {
         $userdoingrestore = 2; // e.g. 2 == admin
         $courseid = restore_dbops::create_new_course('', '', $categoryid);
 
+        // Import course content only — no user data. The user-data root settings
+        // (users, userscompletion, ...) and every per-activity *_userinfo setting
+        // are forced off directly in the backup's moodle_backup.xml *before* the
+        // controller is constructed. This is required because the restore plan and
+        // its steps (e.g. restore_userscompletion_structure_step) are built from
+        // those values inside the controller constructor; toggling the settings on
+        // the plan afterwards is too late to un-build a step. Without this, the
+        // completion-view records of users that are not restored all map to userid 0
+        // and collide on mdl_course_modules_viewed (duplicate key
+        // (userid=0, coursemoduleid=...)), aborting the whole transaction.
+        self::disableBackupUserData($folder);
+
         // Restore backup into course.
         $controller = new restore_controller($folder, $courseid,
             backup::INTERACTIVE_NO, backup::MODE_GENERAL, $userdoingrestore,
@@ -141,6 +149,59 @@ class local_edusharing_webservice_external extends external_api {
         // Commit.
         $transaction->allow_commit();
         return $courseid;
+    }
+
+    /**
+     * Force all user-data restore settings off in an extracted backup's
+     * moodle_backup.xml so the restore imports course content only.
+     *
+     * Must be called before the restore_controller is constructed: the plan and
+     * its steps are built from these values in the constructor, so changing the
+     * settings on the live plan afterwards cannot un-build a step that was already
+     * added (notably restore_userscompletion_structure_step, which then inserts
+     * duplicate userid=0 rows into mdl_course_modules_viewed).
+     *
+     * @param string $folder Backup temp-dir name under $CFG->tempdir/backup/.
+     */
+    private static function disableBackupUserData($folder) {
+        global $CFG;
+
+        $xmlpath = $CFG->tempdir . '/backup/' . $folder . '/moodle_backup.xml';
+        if (!is_file($xmlpath)) {
+            error_log('disableBackupUserData: moodle_backup.xml not found at ' . $xmlpath);
+            return;
+        }
+
+        // Root-level settings that depend on "users"; mirrors the dependency graph
+        // in restore_root_task::define_settings(). Any setting whose name ends in
+        // "_userinfo" is a per-activity user-data flag and is disabled as well.
+        $rootuserdatasettings = [
+            'users', 'role_assignments', 'permissions', 'comments', 'badges',
+            'userscompletion', 'logs', 'grade_histories',
+        ];
+
+        $dom = new DOMDocument();
+        if (!$dom->load($xmlpath)) {
+            error_log('disableBackupUserData: failed to parse ' . $xmlpath);
+            return;
+        }
+
+        foreach ($dom->getElementsByTagName('setting') as $setting) {
+            $namenodes = $setting->getElementsByTagName('name');
+            $valuenodes = $setting->getElementsByTagName('value');
+            if ($namenodes->length === 0 || $valuenodes->length === 0) {
+                continue;
+            }
+            $name = trim($namenodes->item(0)->nodeValue);
+            if (in_array($name, $rootuserdatasettings, true)
+                    || substr($name, -9) === '_userinfo') {
+                $valuenodes->item(0)->nodeValue = '0';
+            }
+        }
+
+        if ($dom->save($xmlpath) === false) {
+            error_log('disableBackupUserData: failed to write ' . $xmlpath);
+        }
     }
 
 
@@ -161,7 +222,13 @@ class local_edusharing_webservice_external extends external_api {
                 mtrace('Course not found. Adding it to render moodle.');
             }
         } else {
-            ini_set('memory_limit', "512");
+            ini_set('memory_limit', "2048M");
+        }
+
+        try {
+            $course = $DB -> get_record('course', ['idnumber' => $nodeId], '*', MUST_EXIST);
+            return json_encode($course->id);
+        } catch (Exception $e) {
         }
 
         //delete course/enrolments
@@ -181,6 +248,10 @@ class local_edusharing_webservice_external extends external_api {
             $enrol -> enrol = 'manual';
             $enrol -> courseid = $courseId;
             $DB->insert_record('enrol', $enrol);
+        }
+
+        if (ob_get_length()) {
+            ob_get_clean();
         }
         return json_encode($courseId);
     }
@@ -220,7 +291,7 @@ class local_edusharing_webservice_external extends external_api {
                 return json_encode($course->id);
             } catch (Exception $e) {}
         } else {
-            ini_set('memory_limit', "512M");
+            ini_set('memory_limit', "2048M");
         }
         $unique = uniqid();
 
@@ -242,7 +313,10 @@ class local_edusharing_webservice_external extends external_api {
         openssl_sign($signData, $signature, $pkeyid);
         $signature = urlencode(base64_encode($signature));
         openssl_free_key($pkeyid);
-        $contentUrl = trim(get_config('edusharing', 'application_cc_gui_url'), '/') . '/content';
+
+        $utils = new UtilityFunctions();
+
+        $contentUrl = trim($utils->get_internal_url(), '/') . '/content';
         $contentUrl .= '?appId=' . get_config('edusharing', 'application_appid');
         $contentUrl .= '&nodeId=' . $nodeId;
         $contentUrl .= '&timeStamp=' . $timestamp;
@@ -324,8 +398,7 @@ class local_edusharing_webservice_external extends external_api {
     public static function unpackFile($path) {
 
         global $CFG;
-
-        $coursePath = $CFG -> dataroot . '/temp/backup/' .$path;
+        $coursePath = $CFG->tempdir . '/backup/' . $path;
         try {
             $zip = new ZipArchive;
             $res = $zip -> open($coursePath . '/course.mbz');
@@ -358,8 +431,13 @@ class local_edusharing_webservice_external extends external_api {
             );
         }
 
-        $savePath = $CFG -> dataroot . '/temp/backup/' .$path;
-        mkdir($savePath, 0744);
+        $backupbase = make_temp_directory('backup');
+        $savePath = rtrim($backupbase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $path;
+
+        if (!check_dir_exists($savePath, true, true)) {
+            error_log('Failed to create temp backup dir: ' . $savePath);
+            return false;
+        }
 
         try {
             $timestamp = round(microtime(true) * 1000);
@@ -368,7 +446,10 @@ class local_edusharing_webservice_external extends external_api {
             openssl_sign($signData, $signature, $pkeyid);
             $signature = urlencode(base64_encode($signature));
             openssl_free_key($pkeyid);
-            $contentUrl = trim(get_config('edusharing', 'application_cc_gui_url'), '/') . '/content';
+
+            $utils = new UtilityFunctions();
+
+            $contentUrl = trim($utils->get_internal_url(), '/') . '/content';
             $contentUrl .= '?appId=' . get_config('edusharing', 'application_appid');
             $contentUrl .= '&nodeId=' . $nodeId;
             $contentUrl .= '&timeStamp=' . $timestamp;
@@ -417,7 +498,7 @@ class local_edusharing_webservice_external extends external_api {
      * @return external_description
      */
     public static function restore_returns() {
-        return new external_value(PARAM_INT, 'course id');
+        return new external_value(PARAM_TEXT, 'course id');
     }
 
     /**
