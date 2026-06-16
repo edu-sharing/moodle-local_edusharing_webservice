@@ -72,9 +72,16 @@ class CourseRestorationService extends RenderMoodleService {
      */
     public function course(string $nodeId, string $title, int $category): RestoreCourseDTO {
         global $DB;
-        $existing_course_id = $this->get_existing_course_id(nodeid: $nodeId);
-        if ($existing_course_id !== null) {
-            return new RestoreCourseDTO(courseId: $existing_course_id, restoreId: null);
+        $existingCourse = $DB->get_record(table: 'course', conditions: ['idnumber' => $nodeId]);
+        if ($existingCourse !== false) {
+            if ($existingCourse->fullname !== $title || $existingCourse->shortname !== $title) {
+                $DB->update_record(table: 'course', dataobject: [
+                    'id'        => $existingCourse->id,
+                    'fullname'  => $title,
+                    'shortname' => $title,
+                ]);
+            }
+            return new RestoreCourseDTO(courseId: (int)$existingCourse->id, restoreId: null);
         }
         $restore = $DB->get_record(table: 'edu_restore', conditions: ['nodeid' => $nodeId]);
         // Todo: Implement time based restore status invalidation (if job is running for longer than x minutes -> reforce)
@@ -160,7 +167,10 @@ class CourseRestorationService extends RenderMoodleService {
         require_once($CFG->libdir . '/setuplib.php');
 
         $savePath = $this->getFilePath();
-        mkdir($savePath, 0744, true);
+        if (!mkdir($savePath, 0744, true) && !is_dir($savePath)) {
+            error_log("getNodeContent: failed to create save directory: $savePath");
+            throw new RuntimeException("Failed to create save directory: $savePath");
+        }
         $localFile = $savePath . '/' . $nodeId .'.mbz';
 
         if (str_starts_with(haystack: $nodeId, needle: $this->testPrefix)) {
@@ -173,12 +183,20 @@ class CourseRestorationService extends RenderMoodleService {
             }
         }
 
+        $internalUrl = $this->utils->get_internal_url();
+        if (empty($internalUrl)) {
+            throw new RuntimeException('No internal edu-sharing URL configured');
+        }
+
         $timestamp = round(microtime(true) * 1000);
-        $contentUrl = rtrim(string: $this->utils->get_internal_url(), characters: '/') . '/content';
+        // sign() returns a base64-encoded signature which may contain +, / and =;
+        // it must be url-encoded before being placed in the query string.
+        $authToken = urlencode($this->eduservice->sign(input: $nodeId . $timestamp));
+        $contentUrl = rtrim(string: $internalUrl, characters: '/') . '/content';
         $contentUrl .= '?appId=' . get_config(plugin: 'edusharing', name: 'application_appid');
-        $contentUrl .= '&ntestodeId=' . $nodeId;
+        $contentUrl .= '&nodeId=' . $nodeId;
         $contentUrl .= '&timeStamp=' . $timestamp;
-        $contentUrl .= '&authToken=' . $this->eduservice->sign(input: $nodeId . $timestamp);
+        $contentUrl .= '&authToken=' . $authToken;
         $contentUrl .= '&signedAlg=' . $this->eduservice->get_signing_algorithm();
 
         $opts    = [
@@ -196,32 +214,52 @@ class CourseRestorationService extends RenderMoodleService {
 
         $remoteHandle = fopen(filename: $contentUrl, mode: 'rb', context: $context);
         if ($remoteHandle === false) {
+            error_log("getNodeContent: failed to open remote URL (see preceding PHP warning for cause)");
             throw new RuntimeException("Failed to open remote URL: $contentUrl");
+        }
+
+        // With ignore_errors enabled the stream opens even on 4xx/5xx; inspect the
+        // response headers so a failed download is logged instead of silently saved.
+        $responseHeaders = stream_get_meta_data($remoteHandle)['wrapper_data'] ?? [];
+        $statusLine = $responseHeaders[0] ?? '';
+        if ($statusLine !== '' && !preg_match('#\s2\d\d\s#', $statusLine)) {
+            error_log("getNodeContent: non-2xx HTTP response from content endpoint: '$statusLine'. "
+                . "Response headers: " . implode(' | ', $responseHeaders));
         }
 
         $localHandle = fopen(filename: $localFile, mode: "wb");
         if ($localHandle === false) {
             fclose(stream: $remoteHandle);
+            error_log("getNodeContent: failed to open local file for writing: $localFile");
             throw new RuntimeException("Failed to open local file for writing: $localFile");
         }
 
+        $totalBytes = 0;
         while (!feof(stream: $remoteHandle)) {
             $chunk = fread(stream: $remoteHandle, length: 8192);
             if ($chunk === false) {
                 fclose($remoteHandle);
                 fclose($localHandle);
+                error_log("getNodeContent: error reading from remote stream after $totalBytes bytes");
                 throw new RuntimeException("Error reading from remote stream");
             }
             $written = fwrite($localHandle, $chunk);
             if ($written === false) {
                 fclose($remoteHandle);
                 fclose($localHandle);
+                error_log("getNodeContent: error writing to local file $localFile after $totalBytes bytes");
                 throw new RuntimeException("Error writing to local file: $localFile");
             }
+            $totalBytes += $written;
         }
 
         fclose($remoteHandle);
         fclose($localHandle);
+
+        if ($totalBytes === 0) {
+            error_log("getNodeContent: WARNING - downloaded 0 bytes for nodeId '$nodeId'; "
+                . "the resulting backup file will be empty/invalid");
+        }
     }
 
     private function unpackFile(string $nodeId): void {
@@ -454,7 +492,7 @@ class CourseRestorationService extends RenderMoodleService {
             status: $restore->status,
             userMessage: $restore->usermessage,
             internalMessage: $restore->message,
-            courseId: $restore->courseid,
+            courseId: (int)$restore->courseid,
         );
     }
 

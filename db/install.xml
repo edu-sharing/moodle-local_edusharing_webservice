@@ -19,7 +19,7 @@
         <TABLE NAME="edu_restore" COMMENT="test">
             <FIELDS>
                 <FIELD NAME="id" SEQUENCE="true" TYPE="int" LENGTH="10" NOTNULL="true"/>
-                <FIELD NAME="nodeid" SEQUENCE="false" TYPE="char" LENGTH="36" NOTNULL="true"/>
+                <FIELD NAME="nodeid" SEQUENCE="false" TYPE="char" LENGTH="80" NOTNULL="true"/>
                 <FIELD NAME="status" SEQUENCE="false" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="queued"/>
                 <FIELD NAME="message" SEQUENCE="false" TYPE="text" NOTNULL="false"/>
                 <FIELD NAME="usermessage" SEQUENCE="false" TYPE="text" NOTNULL="false"/>

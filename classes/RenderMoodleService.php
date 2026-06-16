@@ -35,7 +35,7 @@ abstract class RenderMoodleService
         global $DB;
         try {
             $course = $DB->get_record(table: 'course', conditions: ['idnumber' => $nodeid], strictness: MUST_EXIST);
-            return $course->id;
+            return (int)$course->id;
         } catch (Exception) {
             return null;
         }

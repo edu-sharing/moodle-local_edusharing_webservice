@@ -36,7 +36,7 @@ class UserService {
     public function __construct() {
         global $DB;
         $this->utils = new UtilityFunctions();
-        $this->restrictedroleid = $DB->get_field(table:'role', return: 'id', conditions: ['shortname' => 'restrictedrenderinguser']);
+        $this->restrictedroleid = (int)$DB->get_field(table:'role', return: 'id', conditions: ['shortname' => 'restrictedrenderinguser']);
     }
 
     /**
@@ -46,7 +46,7 @@ class UserService {
      */
     public function get_token(UserDataDTO $user, int $courseid): string {
         $userid = $this->get_or_create_user(userData: $user);
-        $this->enrol_user(userId: $userid, courseid: $courseid);
+        $this->enrol_user(userid: $userid, courseid: $courseid);
         return $this->generate_token(userid: $userid, courseid: $courseid);
     }
 
@@ -65,7 +65,7 @@ class UserService {
             $DB->update_record(table: 'user', dataobject: $user);
             role_assign(roleid: $this->restrictedroleid, userid: $user->id, contextid: context_system::instance()->id);
         }
-        return $user->id;
+        return (int)$user->id;
     }
 
     /**
