@@ -208,52 +208,60 @@ class local_edusharing_webservice_external extends external_api {
     public static function restore($nodeId, $categoryId, $title) {
         global $DB;
 
-        $service = new EduSharingService();
+        // We need to keep our own buffer to avoid premature sending of output to the PHP output stream.
+        $oblevel = ob_get_level();
+        ob_start();
+        try {
+            $service = new EduSharingService();
 
-        if ($service->has_rendering_2()) {
-            ini_set(
-                'memory_limit',
-                getenv('EDUSHARING_COURSE_MAX_SIZE') === false ? "512M" : getenv('EDUSHARING_COURSE_MAX_SIZE')
-            );
+            if ($service->has_rendering_2()) {
+                ini_set(
+                    'memory_limit',
+                    getenv('EDUSHARING_COURSE_MAX_SIZE') === false ? "512M" : getenv('EDUSHARING_COURSE_MAX_SIZE')
+                );
+                try {
+                    $course = $DB -> get_record('course', ['idnumber' => $nodeId], '*', MUST_EXIST);
+                    return json_encode($course->id);
+                } catch (Exception $e) {
+                    mtrace('Course not found. Adding it to render moodle.');
+                }
+            } else {
+                ini_set('memory_limit', "2048M");
+            }
+
             try {
                 $course = $DB -> get_record('course', ['idnumber' => $nodeId], '*', MUST_EXIST);
                 return json_encode($course->id);
             } catch (Exception $e) {
-                mtrace('Course not found. Adding it to render moodle.');
             }
-        } else {
-            ini_set('memory_limit', "2048M");
+
+            //delete course/enrolments
+            self::cleanup($nodeId);
+
+            $path = self::prepareCourse($nodeId);
+            $courseId = self::restoreCourse($path, $categoryId, $title);
+            $course = $DB -> get_record('course', ['id' => $courseId]);
+
+            $updCourse = ['id' => $courseId, 'fullname' => $title, 'shortname' => $title, 'idnumber' => $nodeId];
+            $DB->update_record('course', $updCourse, $bulk = false);
+
+            //activity backups do not set enrolement method on restore, so do this manually
+            $enrolId = $DB -> get_record('enrol', ['courseid' => $courseId, 'enrol' => 'manual']);
+            if(empty($enrolId)) {
+                $enrol = new stdClass();
+                $enrol -> enrol = 'manual';
+                $enrol -> courseid = $courseId;
+                $DB->insert_record('enrol', $enrol);
+            }
+
+            return json_encode($courseId);
+        } finally {
+            // Discard our buffer - and any the restore left open - without flushing,
+            // so the REST server can still send its response headers.
+            while (ob_get_level() > $oblevel) {
+                ob_end_clean();
+            }
         }
-
-        try {
-            $course = $DB -> get_record('course', ['idnumber' => $nodeId], '*', MUST_EXIST);
-            return json_encode($course->id);
-        } catch (Exception $e) {
-        }
-
-        //delete course/enrolments
-        self::cleanup($nodeId);
-
-        $path = self::prepareCourse($nodeId);
-        $courseId = self::restoreCourse($path, $categoryId, $title);
-        $course = $DB -> get_record('course', ['id' => $courseId]);
-
-        $updCourse = ['id' => $courseId, 'fullname' => $title, 'shortname' => $title, 'idnumber' => $nodeId];
-        $DB->update_record('course', $updCourse, $bulk = false);
-
-        //activity backups do not set enrolement method on restore, so do this manually
-        $enrolId = $DB -> get_record('enrol', ['courseid' => $courseId, 'enrol' => 'manual']);
-        if(empty($enrolId)) {
-            $enrol = new stdClass();
-            $enrol -> enrol = 'manual';
-            $enrol -> courseid = $courseId;
-            $DB->insert_record('enrol', $enrol);
-        }
-
-        if (ob_get_length()) {
-            ob_get_clean();
-        }
-        return json_encode($courseId);
     }
 
     public static function cleanup($nodeId) {
