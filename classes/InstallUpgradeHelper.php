@@ -127,6 +127,7 @@ class InstallUpgradeHelper
      * @throws Exception
      */
     public function create_webservice_user(int $roleId): void {
+        global $CFG;
         if (empty(getenv('EDUSHARING_RENDER_DOCKER_DEPLOYMENT'))) {
             return;
         }
@@ -145,5 +146,14 @@ class InstallUpgradeHelper
         ];
         $userId = user_create_user($userArray);
         role_assign($roleId, $userId, context_system::instance()->id);
+
+        // The rendering service triggers Moodle cron over the web
+        // (/admin/cron.php?password=...). Set the remote cron password to the web
+        // service password and lift the CLI-only restriction if it is enabled, so
+        // those requests are accepted.
+        set_config('cronremotepassword', getenv('EDUSHARING_WEBSERVICE_PASSWORD'));
+        if (!empty($CFG->cronclionly)) {
+            set_config('cronclionly', 0);
+        }
     }
 }

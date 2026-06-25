@@ -11,19 +11,43 @@ HINT: Disable "Include enrolled users" in Moodle backup dialog. It can cause pro
 ## Setup
 
 ### Manual setup
-1. This plugin requires the edu-sharing plugin (https://moodle.org/plugins/mod_edusharing)
+
+#### Legacy Rendering Service
+
+1. This plugin requires the edu-sharing plugin (https://moodle.org/plugins/mod_edusharing). It must be connected to the repository.
 2. Install this plugin to moodle/local (rename folder to edusharing_webservice)
 3. Setup the edu-sharing-webservice in moodle
     - Webservices and REST-protocol are automatically enabled during installation
-    - Create a webservice user
-      - You might need to create a system role with the appropriate permissions (rest protocol) and assign it to your webservice user
+    - Create a webservice user and assign them to the role 'Webservice user'
     - Generate user webservice token:
         - Access Administration > Site administration > Server > Web services > Manage tokens
         - Select User: the created webservice-user
         - Select Service: edusharing-webservice
         - Save Changes
-5. Setup config.php in the rendering service moodle-module. Use the generated token.
-6. You might want to increase Moodle DB 'max_allowed_packet' to restore big courses (MYSQL and MariaDB).
+4. Setup config.php in the rendering service moodle-module. Use the generated token.
+5. You might want to increase Moodle DB 'max_allowed_packet' to restore big courses (MYSQL and MariaDB).
+
+#### Rendering Service 2
+
+1. Follow steps 1. and 2. of the above section
+2. Create a webservice user and assign them to the role webservice user. Make sure they have the permission to create web service tokens.
+3. Set up Rendering Service 2 (or have your admin do it for you)
+
+```
+app.repository.registration.id.local.optional-modules=....,MOODLE,SCORM
+
+app.repository.registration.id.local.module.MOODLE.credentials.baseurl=www.my-moodle-instance.de
+app.repository.registration.id.local.module.MOODLE.credentials.user=my-webservice-user
+app.repository.registration.id.local.module.MOODLE.credentials.password=my-webservice-user-password
+app.repository.registration.id.local.module.MOODLE.credentials.timeout=90
+app.repository.registration.id.local.module.MOODLE.credentials.categoryid=1
+
+app.repository.registration.id.local.module.SCORM.credentials.baseurl=www.my-moodle-instance.de
+app.repository.registration.id.local.module.SCORM.credentials.user=my-webservice-user
+app.repository.registration.id.local.module.SCORM.credentials.password=my-webservice-user-password
+app.repository.registration.id.local.module.SCORM.credentials.timeout=90
+app.repository.registration.id.local.module.SCORM.credentials.categoryid=1
+```
 
 ### Docker
 
