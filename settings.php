@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Defines the version of the edu-sharing plugin
+ * Settings for the edu-sharing webservice plugin.
  *
  * @package    local_edusharing_webservice
  * @copyright  metaVentis GmbH — http://metaventis.com
@@ -23,8 +23,18 @@
  */
 
 defined('MOODLE_INTERNAL') || die();
-$plugin->component = 'local_edusharing_webservice';
-$plugin->dependencies = ['mod_edusharing'  => 2025072300];
-$plugin->version  = 2026062401;
-$plugin->maturity = MATURITY_STABLE;
-$plugin->release = '10.1.5';
+
+if ($hassiteconfig) {
+    $settings = new admin_settingpage(
+        'local_edusharing_webservice',
+        get_string('pluginname', 'local_edusharing_webservice')
+    );
+    $ADMIN->add('localplugins', $settings);
+
+    $settings->add(new admin_setting_configduration(
+        'local_edusharing_webservice/restoretimeout',
+        get_string('restoretimeout', 'local_edusharing_webservice'),
+        get_string('restoretimeout_desc', 'local_edusharing_webservice'),
+        30 * MINSECS
+    ));
+}

@@ -47,15 +47,43 @@ class ScormRestorationService extends RenderMoodleService {
         if ($existing_course_id !== null) {
             return $existing_course_id;
         }
-        $this->create_course();
-        $this->add_scorm_to_course();
-        return $this->course->id;
+        try {
+            $this->create_course();
+            $this->add_scorm_to_course();
+        } catch (Exception $exception) {
+            // Adding the SCORM activity (or fetching its package) can fail after the
+            // course has already been created; remove the half-built course so a
+            // retry starts clean instead of leaving an orphaned, empty course behind.
+            $this->rollback();
+            throw $exception;
+        }
+        return (int) $this->course->id;
+    }
+
+    /**
+     * Delete the course created during a failed SCORM restoration, if any.
+     */
+    private function rollback(): void {
+        global $CFG;
+        if ($this->course === null) {
+            return;
+        }
+        require_once($CFG->dirroot . '/course/lib.php');
+        try {
+            delete_course($this->course->id, false);
+        } catch (Exception $exception) {
+            error_log('edu-sharing SCORM rollback: failed to delete course '
+                . $this->course->id . ': ' . $exception->getMessage());
+        }
+        $this->course = null;
     }
 
     /**
      * @throws \moodle_exception
      */
     private function create_course(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/course/lib.php');
         $unique = uniqid();
         $data = new stdClass();
         $data->category = $this->categoryid;
@@ -75,7 +103,7 @@ class ScormRestorationService extends RenderMoodleService {
         $timestamp = round(microtime(true) * 1000);
         $signData = $this->nodeid . $timestamp;
         $signed = urlencode($this->eduservice->sign($signData));
-        $contentUrl = trim($this->utils->get_config_entry('application_cc_gui_url'), '/') . '/content';
+        $contentUrl = trim($this->utils->get_internal_url(), '/') . '/content';
         $contentUrl .= '?appId=' . $this->utils->get_config_entry('application_appid');
         $contentUrl .= '&nodeId=' . $this->nodeid;
         $contentUrl .= '&timeStamp=' . $timestamp;
@@ -85,16 +113,74 @@ class ScormRestorationService extends RenderMoodleService {
     }
 
     /**
+     * Download the edu-sharing package into the current user's draft file area and
+     * return the draft item id, so it can be imported as a SCORM_TYPE_LOCAL package.
+     *
+     * An explicit filename is used so the stored file is not named after the (very
+     * long, query-string-only) content URL.
+     *
+     * @throws dml_exception
+     * @throws moodle_exception
+     * @throws Exception
+     */
+    private function download_package_to_draft(): int {
+        global $CFG, $USER;
+        require_once($CFG->libdir . '/filelib.php');
+        raise_memory_limit(MEMORY_EXTRA);
+
+        // Stream the download to a temp file so large packages do not exhaust memory.
+        $tempfile = tempnam($CFG->tempdir, 'edusharing_scorm_');
+        if ($tempfile === false) {
+            throw new Exception('Failed to create temp file for SCORM package download');
+        }
+        $ok = download_file_content($this->get_content_url(), null, null, false, 300, 20, false, $tempfile);
+        clearstatcache(true, $tempfile);
+        if ($ok !== true || filesize($tempfile) === 0) {
+            @unlink($tempfile);
+            throw new Exception('Failed to download SCORM package for node ' . $this->nodeid);
+        }
+
+        $fs = get_file_storage();
+        $draftitemid = file_get_unused_draft_itemid();
+        $filename = clean_param($this->nodeid . '.zip', PARAM_FILE);
+        $filerecord = [
+            'contextid' => \context_user::instance($USER->id)->id,
+            'component' => 'user',
+            'filearea'  => 'draft',
+            'itemid'    => $draftitemid,
+            'filepath'  => '/',
+            'filename'  => $filename,
+            // file_save_draft_area_files() unserialises the draft file's source and
+            // reads ->source from it, so store a serialised object rather than the bare
+            // (very long) content URL, which both overflows the column and fails to
+            // unserialise.
+            'source'    => serialize((object) ['source' => $filename]),
+        ];
+        try {
+            $fs->create_file_from_pathname($filerecord, $tempfile);
+        } finally {
+            @unlink($tempfile);
+        }
+        return $draftitemid;
+    }
+
+    /**
      * @throws dml_exception
      * @throws moodle_exception
      */
     private function add_scorm_to_course(): void {
-        global $DB;
-        set_config('allowtypelocalsync', 1, 'scorm');
+        global $DB, $CFG;
+        require_once($CFG->dirroot . '/course/modlib.php');
+        require_once($CFG->dirroot . '/mod/scorm/lib.php');
         $scorm_module_id = $DB->get_field('modules', 'id', ['name' => 'scorm']);
         $scormdata = new stdClass();
-        $scormdata->scormtype = SCORM_TYPE_LOCALSYNC;
-        $scormdata->packageurl = $this->get_content_url();
+        // Download the package ourselves into a draft file area with a clean filename
+        // and import it as a LOCAL package. Handing SCORM the signed content URL
+        // (SCORM_TYPE_LOCALSYNC) makes Moodle name the stored file after the URL's
+        // last segment — the whole query string — which overflows the 255-char
+        // files.filename column and aborts the transaction.
+        $scormdata->scormtype = SCORM_TYPE_LOCAL;
+        $scormdata->packagefile = $this->download_package_to_draft();
         $scormdata->intro = 'scorm';
         $scormdata->datadir = '';
         $scormdata->pkgtype = '';

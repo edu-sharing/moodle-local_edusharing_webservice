@@ -29,8 +29,10 @@ class RestoreTask extends asynchronous_restore_task {
 
         try {
             $customData = $this->get_custom_data();
-            if (empty($customData->restoreid) || empty($customData->category) || empty($customData->title)) {
-                throw new Exception('Invalid restore custom data provided to restore task');
+            if (empty($customData->restoreid)) {
+                // Without a restoreid there is no edu_restore record to update, so the
+                // failure cannot be surfaced to the caller; just abort.
+                throw new Exception('Invalid restore custom data provided to restore task: missing restoreid');
             }
             $restore = $DB->get_record(
                 table: 'edu_restore',
@@ -43,6 +45,21 @@ class RestoreTask extends asynchronous_restore_task {
         }
 
         try {
+            // Now that the restore record is loaded, validate the remaining custom data
+            // here so any problem is recorded as a failure on the record instead of
+            // silently leaving it stuck in the "queued" state (the task would otherwise
+            // complete and be removed from the queue, never resolving the status).
+            if (empty($customData->title) || empty($customData->category)) {
+                throw new UserException(
+                    internalMessage: sprintf(
+                        'Invalid restore custom data for restoreid %s: title and category are required (title=%s, category=%s)',
+                        $customData->restoreid,
+                        var_export($customData->title ?? null, true),
+                        var_export($customData->category ?? null, true)
+                    ),
+                    externalMessage: get_string('error_invalid_restore_data', 'local_edusharing_webservice'),
+                );
+            }
             $restore->status = RestoreStatus::RUNNING;
             $restore->lastmodified = time();
             $DB->update_record('edu_restore', $restore);

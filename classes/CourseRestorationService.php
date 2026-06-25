@@ -84,12 +84,31 @@ class CourseRestorationService extends RenderMoodleService {
             return new RestoreCourseDTO(courseId: (int)$existingCourse->id, restoreId: null);
         }
         $restore = $DB->get_record(table: 'edu_restore', conditions: ['nodeid' => $nodeId]);
-        // Todo: Implement time based restore status invalidation (if job is running for longer than x minutes -> reforce)
-        if ($restore !== false) {
-            return new RestoreCourseDTO(courseId: null, restoreId: $restore->id);
+        if ($restore !== false && !$this->isRestoreStale($restore)) {
+            return new RestoreCourseDTO(courseId: null, restoreId: (int)$restore->id);
         }
 
-        $restoreId = $DB->insert_record(table: 'edu_restore', dataobject: ['nodeid' => $nodeId, 'lastmodified' => time()]);
+        if ($restore !== false) {
+            // Stale restore (crashed, hung, or never picked up): reset the existing
+            // record and re-queue against the same restoreId so callers polling the
+            // status keep their handle.
+            $DB->update_record(table: 'edu_restore', dataobject: [
+                'id'           => $restore->id,
+                'status'       => RestoreStatus::QUEUED,
+                'lastmodified' => time(),
+                'message'      => null,
+                'usermessage'  => null,
+                'courseid'     => null,
+            ]);
+            $restoreId = (int)$restore->id;
+        } else {
+            $restoreId = $DB->insert_record(table: 'edu_restore', dataobject: [
+                'nodeid'       => $nodeId,
+                'status'       => RestoreStatus::QUEUED,
+                'lastmodified' => time(),
+            ]);
+        }
+
         $task = new RestoreTask();
         $task->set_custom_data(
             customdata: [
@@ -101,6 +120,31 @@ class CourseRestorationService extends RenderMoodleService {
         $task->set_userid(userid: $this->getAdminId());
         manager::queue_adhoc_task(task: $task);
         return new RestoreCourseDTO(courseId: null, restoreId: $restoreId);
+    }
+
+    /**
+     * Decide whether an existing restore record should be re-forced.
+     *
+     * A failed restore is re-forced immediately so a retry can start right away.
+     * A queued/running restore is only re-forced once it has not been updated within
+     * the configured timeout (its task most likely crashed, hung, or was never picked
+     * up by cron). A successful restore is never re-forced.
+     *
+     * @throws dml_exception
+     */
+    private function isRestoreStale(stdClass $restore): bool {
+        if ($restore->status === RestoreStatus::SUCCESS) {
+            return false;
+        }
+        if ($restore->status === RestoreStatus::FAILURE) {
+            // A failed restore can be retried immediately; no need to wait for the timeout.
+            return true;
+        }
+        $timeout = (int) get_config('local_edusharing_webservice', 'restoretimeout');
+        if ($timeout <= 0) {
+            $timeout = 30 * MINSECS;
+        }
+        return (time() - (int) $restore->lastmodified) > $timeout;
     }
 
     /**
@@ -145,11 +189,6 @@ class CourseRestorationService extends RenderMoodleService {
             target: $target
         );
         $controller->get_plan()->get_setting('users')->set_value(false);
-        $controller->get_plan()->get_setting('role_assignments')->set_value(false);
-        $controller->get_plan()->get_setting('userscompletion')->set_value(false);
-        $controller->get_plan()->get_setting('logs')->set_value(false);
-        $controller->get_plan()->get_setting('grade_histories')->set_value(false);
-        $controller->get_plan()->get_setting('comments')->set_value(false);
         $precheckok = $controller->execute_precheck();
         if (!$precheckok) {
             throw new RuntimeException('Restore precheck failed: ' . json_encode($controller->get_precheck_results()));
