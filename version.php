@@ -27,4 +27,4 @@ $plugin->component = 'local_edusharing_webservice';
 $plugin->dependencies = ['mod_edusharing'  => 2026070900];
 $plugin->version  = 2026072300;
 $plugin->maturity = MATURITY_STABLE;
-$plugin->release = '11.0.0';
+$plugin->release = '7.7.7';
