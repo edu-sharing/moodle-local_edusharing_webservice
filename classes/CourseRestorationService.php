@@ -24,6 +24,7 @@ use base_setting_exception;
 use core\exception\coding_exception;
 use core\task\manager;
 use core_plugin_manager;
+use DOMDocument;
 use dml_exception;
 use Exception;
 use local_edusharing_webservice\task\RestoreTask;
@@ -180,6 +181,20 @@ class CourseRestorationService extends RenderMoodleService {
         $this->courseId  = restore_dbops::create_new_course(fullname: '', shortname: '', categoryid: $category);
         $target = $isActivity ? backup::TARGET_EXISTING_ADDING : backup::TARGET_NEW_COURSE;
 
+        // Force all user-data settings off directly in moodle_backup.xml *before* the
+        // restore_controller is constructed. The plan, its steps and the settings'
+        // dependency graph are all built from these values inside the controller
+        // constructor. If user data is left enabled, restore_root_task::define_settings()
+        // wires a cyclic "users" <-> dependent-setting graph (role_assignments, comments,
+        // badges, userscompletion, logs, grade_histories and every per-activity
+        // *_userinfo setting). backup_general_helper::array_checksum_recursive() - used
+        // when the controller is checksummed on save/load - has no cycle detection and
+        // recurses through that graph until it exhausts memory (OOM). Toggling
+        // get_setting('users') on the live plan afterwards is both too late (the graph
+        // already exists) and insufficient (it changes a value, not the dependency
+        // edges), so the user data must be stripped here, pre-construction.
+        $this->disableBackupUserData();
+
         $controller = new restore_controller(
             tempdir: $this->tempDir,
             courseid: $this->courseId,
@@ -188,7 +203,6 @@ class CourseRestorationService extends RenderMoodleService {
             userid: $this->getAdminId(),
             target: $target
         );
-        $controller->get_plan()->get_setting('users')->set_value(false);
         $precheckok = $controller->execute_precheck();
         if (!$precheckok) {
             throw new RuntimeException('Restore precheck failed: ' . json_encode($controller->get_precheck_results()));
@@ -342,6 +356,59 @@ class CourseRestorationService extends RenderMoodleService {
         }
 
         throw new RuntimeException('moodle_backup.xml is not a valid backup file');
+    }
+
+    /**
+     * Force all user-data restore settings off in the extracted backup's
+     * moodle_backup.xml so the restore imports course content only.
+     *
+     * Must be called before the restore_controller is constructed: the plan, its
+     * steps and the settings' dependency graph are built from these values in the
+     * constructor. Leaving user data enabled builds a cyclic "users" <-> dependent
+     * setting graph (see restore_root_task::define_settings) which
+     * backup_general_helper::array_checksum_recursive() - having no cycle detection -
+     * walks until memory is exhausted when the controller is checksummed. Changing
+     * the settings on the live plan afterwards cannot un-build that graph.
+     *
+     * Ported from the previous synchronous implementation in externallib.php.
+     */
+    private function disableBackupUserData(): void {
+        $xmlpath = $this->getFilePath() . '/moodle_backup.xml';
+        if (!is_file($xmlpath)) {
+            error_log('disableBackupUserData: moodle_backup.xml not found at ' . $xmlpath);
+            return;
+        }
+
+        // Root-level settings that depend on "users"; mirrors the dependency graph
+        // in restore_root_task::define_settings(). Any setting whose name ends in
+        // "_userinfo" is a per-activity user-data flag and is disabled as well.
+        $rootuserdatasettings = [
+            'users', 'role_assignments', 'permissions', 'comments', 'badges',
+            'userscompletion', 'logs', 'grade_histories',
+        ];
+
+        $dom = new DOMDocument();
+        if (!$dom->load($xmlpath)) {
+            error_log('disableBackupUserData: failed to parse ' . $xmlpath);
+            return;
+        }
+
+        foreach ($dom->getElementsByTagName('setting') as $setting) {
+            $namenodes = $setting->getElementsByTagName('name');
+            $valuenodes = $setting->getElementsByTagName('value');
+            if ($namenodes->length === 0 || $valuenodes->length === 0) {
+                continue;
+            }
+            $name = trim($namenodes->item(0)->nodeValue);
+            if (in_array($name, $rootuserdatasettings, true)
+                    || substr($name, -9) === '_userinfo') {
+                $valuenodes->item(0)->nodeValue = '0';
+            }
+        }
+
+        if ($dom->save($xmlpath) === false) {
+            error_log('disableBackupUserData: failed to write ' . $xmlpath);
+        }
     }
 
     /**

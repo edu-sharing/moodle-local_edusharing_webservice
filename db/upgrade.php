@@ -27,6 +27,7 @@ use local_edusharing_webservice\InstallUpgradeHelper;
 
 function xmldb_local_edusharing_webservice_upgrade($oldversion) {
     global $DB;
+    $dbman  = $DB->get_manager();
     $helper = new InstallUpgradeHelper();
     if ($oldversion < 2025080800) {
         set_config('allowframembedding', 1);
@@ -48,6 +49,26 @@ function xmldb_local_edusharing_webservice_upgrade($oldversion) {
         }
 
         upgrade_plugin_savepoint(true, 2025080800, 'local', 'edusharing_webservice');
+    }
+
+    if ($oldversion < 2026071700) {
+        // Define table edu_restore to be created (added to install.xml only,
+        // so existing installations never received it).
+        $table = new xmldb_table('edu_restore');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('nodeid', XMLDB_TYPE_CHAR, '80', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('status', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'queued');
+        $table->add_field('message', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('usermessage', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
+        $table->add_field('lastmodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2026071700, 'local', 'edusharing_webservice');
     }
 
     return true;
