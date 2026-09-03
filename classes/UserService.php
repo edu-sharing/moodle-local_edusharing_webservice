@@ -58,7 +58,7 @@ class UserService {
         global $DB;
         $user = $DB->get_record(table: "user", conditions: ["username" => $userData->username]);
         if(empty($user)) {
-            $user = create_user_record($user->username, uniqid());
+            $user = create_user_record($userData->username, uniqid());
             $user->firstname = $userData->firstname;
             $user->lastname = $userData->lastname;
             $user->email = $userData->email;
@@ -79,7 +79,7 @@ class UserService {
         $context = context_course::instance($courseid);
         if (!is_enrolled(context: $context, user: $userid)) {
             if (!enrol_try_internal_enrol(courseid: $courseid, userid: $userid, roleid: $this->restrictedroleid, timestart: time())) {
-                throw new moodle_exception('unabletoenrolerrormessage', 'langsourcefile');
+                throw new moodle_exception('error_unable_to_enrol', 'local_edusharing_webservice');
             }
         }
     }

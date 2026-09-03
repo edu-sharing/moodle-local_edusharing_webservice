@@ -31,3 +31,4 @@ $string['error_missing_plugins'] = 'Missing Moodle plugins: ';
 $string['error_invalid_restore_data'] = 'The restore request was incomplete (a course title is required). Please retry the restore.';
 $string['restoretimeout'] = 'Restore staleness timeout';
 $string['restoretimeout_desc'] = 'If an in-progress restore (queued, running, or failed) has not been updated within this period, the next restore request for the same node abandons it and queues a fresh restore job.';
+$string['error_unable_to_enrol'] = 'The user could not be enrolled in the course.';

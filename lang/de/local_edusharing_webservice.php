@@ -28,3 +28,4 @@ $string['pluginname'] = 'edu-sharing webservice';
 $string['edusharing_webservice:manageusers'] = 'Manage edu-sharing users';
 $string['edusharing_webservice:use'] = 'Use edu-sharing webservice';
 $string['error_missing_plugins'] = 'Fehlende Moodle-Plugins: ';
+$string['error_unable_to_enrol'] = 'Der Nutzer konnte nicht in den Kurs eingeschrieben werden.';
