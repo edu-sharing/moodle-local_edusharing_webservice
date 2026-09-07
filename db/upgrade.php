@@ -16,6 +16,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 use local_edusharing_webservice\InstallUpgradeHelper;
+use local_edusharing_webservice\task\ProvisionWebserviceTask;
 
 /**
  * Upgrade steps for the local_edusharing_webservice plugin.
@@ -36,17 +37,19 @@ function xmldb_local_edusharing_webservice_upgrade($oldversion) {
         try {
             $helper->update_scorm_packages();
             $helper->create_restricted_role();
-        } catch (exception $e) {
-            error_log($e->getMessage());
+        } catch (Throwable $e) {
+            // Do not swallow: reaching the savepoint below after a failed step
+            // records it as done, so it can never be retried.
+            error_log(sprintf(
+                "local_edusharing_webservice upgrade failed: %s: %s\nFile: %s:%d\n\nStack trace:\n%s",
+                get_class($e), $e->getMessage(), $e->getFile(), $e->getLine(), $e->getTraceAsString()
+            ));
+            throw $e;
         }
 
-        try {
-            $helper->delete_users();
-            $webserviceroleid = $helper->create_webservice_role();
-            $helper->create_webservice_user($webserviceroleid);
-        } catch (exception $e) {
-            error_log($e->getMessage());
-        }
+        // Role and user provisioning cannot run inside an upgrade; see
+        // ProvisionWebserviceTask. Queue it for the next cron run instead.
+        \core\task\manager::queue_adhoc_task(new ProvisionWebserviceTask(), true);
 
         upgrade_plugin_savepoint(true, 2025080800, 'local', 'edusharing_webservice');
     }
@@ -69,6 +72,16 @@ function xmldb_local_edusharing_webservice_upgrade($oldversion) {
         }
 
         upgrade_plugin_savepoint(true, 2026071700, 'local', 'edusharing_webservice');
+    }
+
+    if ($oldversion < 2026090600) {
+        // Sites upgraded while the provisioning step was silently failing have
+        // a savepoint past 2025080800 but no web service role or user. Queue
+        // the task so they self-heal on the next cron run; it is idempotent and
+        // a no-op outside a render deployment.
+        \core\task\manager::queue_adhoc_task(new ProvisionWebserviceTask(), true);
+
+        upgrade_plugin_savepoint(true, 2026090600, 'local', 'edusharing_webservice');
     }
 
     return true;

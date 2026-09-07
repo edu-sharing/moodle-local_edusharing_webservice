@@ -8,6 +8,7 @@ require_once $CFG->dirroot."/admin/lib.php";
 require_once $CFG->dirroot."/lib/moodlelib.php";
 
 use local_edusharing_webservice\InstallUpgradeHelper;
+use local_edusharing_webservice\task\ProvisionWebserviceTask;
 
 function xmldb_local_edusharing_webservice_install(){
     global $DB;
@@ -33,22 +34,17 @@ function xmldb_local_edusharing_webservice_install(){
     try {
         $helper->update_scorm_packages();
         $helper->create_restricted_role();
-    } catch (exception $e) {
-        error_log($e->getMessage());
+    } catch (Throwable $e) {
+        error_log(sprintf(
+            "local_edusharing_webservice install failed: %s: %s\nFile: %s:%d\n\nStack trace:\n%s",
+            get_class($e), $e->getMessage(), $e->getFile(), $e->getLine(), $e->getTraceAsString()
+        ));
+        throw $e;
     }
 
-    try {
-        $helper->delete_users();
-    } catch (exception $e) {
-        error_log($e->getMessage());
-    }
-
-    try {
-        $serviceroleid = $helper->create_webservice_role();
-        $helper->create_webservice_user($serviceroleid);
-    } catch (exception $e) {
-        error_log($e->getMessage());
-    }
+    // Role and user provisioning cannot run inside install/upgrade; see
+    // ProvisionWebserviceTask. Queue it for the next cron run instead.
+    \core\task\manager::queue_adhoc_task(new ProvisionWebserviceTask(), true);
 
     return true;
 }
