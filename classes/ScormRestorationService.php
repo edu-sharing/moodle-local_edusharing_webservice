@@ -50,6 +50,7 @@ class ScormRestorationService extends RenderMoodleService {
         try {
             $this->create_course();
             $this->add_scorm_to_course();
+            $this->assert_activity_is_displayed();
         } catch (Exception $exception) {
             // Adding the SCORM activity (or fetching its package) can fail after the
             // course has already been created; remove the half-built course so a
@@ -128,6 +129,32 @@ class ScormRestorationService extends RenderMoodleService {
             $DB->set_field('course_format_options', 'value', $modname, ['id' => $existing->id]);
         }
         rebuild_course_cache((int) $this->course->id, true);
+    }
+
+    /**
+     * Fail if the finished course would not actually display its SCORM package.
+     *
+     * force_activity_type() keeps the format option correct, but a course can still end up
+     * without a main activity - the format only picks up an activity of the configured type
+     * that sits in section 0. Without this check the web service returns a course id for a
+     * course that cannot show its package, and the breakage surfaces much later, in front of
+     * a user. Throwing here lets rollback() remove the course, so the caller gets an error
+     * and a retry starts clean.
+     *
+     * @throws moodle_exception
+     * @throws Exception
+     */
+    private function assert_activity_is_displayed(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/course/lib.php');
+        $activity = course_get_format($this->course->id)->get_main_activity();
+        if ($activity === null || $activity->modname !== 'scorm') {
+            throw new Exception(
+                'Course ' . $this->course->id . ' does not display its SCORM activity: the '
+                . 'singleactivity format resolved to '
+                . ($activity === null ? 'no activity' : $activity->modname)
+            );
+        }
     }
 
     /**
