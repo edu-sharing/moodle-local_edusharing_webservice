@@ -93,6 +93,41 @@ class ScormRestorationService extends RenderMoodleService {
         $data->activitytype = 'scorm';
         $data->idnumber = $this->nodeid;
         $this->course = create_course($data);
+        $this->force_activity_type($data->activitytype);
+    }
+
+    /**
+     * Pin the singleactivity format's activity type on the freshly created course.
+     *
+     * create_course() passes the value through format_singleactivity's
+     * course_format_options(), which only offers the activity types the *calling* user
+     * is allowed to add (mod/<type>:addinstance). The web service user normally holds
+     * no such capability, so 'scorm' is dropped without warning and the format falls
+     * back to its site default. A singleactivity course whose activity type does not
+     * match the module it contains has no main activity, so /course/view.php renders
+     * the course page instead of redirecting into the SCORM and the learner has to
+     * click through. Write the option directly, bypassing that capability filter.
+     *
+     * @throws dml_exception
+     */
+    private function force_activity_type(string $modname): void {
+        global $DB;
+        $conditions = [
+            'courseid' => (int) $this->course->id,
+            'format' => 'singleactivity',
+            'sectionid' => 0,
+            'name' => 'activitytype',
+        ];
+        $existing = $DB->get_record('course_format_options', $conditions);
+        if ($existing !== false && $existing->value === $modname) {
+            return;
+        }
+        if ($existing === false) {
+            $DB->insert_record('course_format_options', (object) ($conditions + ['value' => $modname]));
+        } else {
+            $DB->set_field('course_format_options', 'value', $modname, ['id' => $existing->id]);
+        }
+        rebuild_course_cache((int) $this->course->id, true);
     }
 
     /**

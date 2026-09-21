@@ -32,7 +32,7 @@ function xmldb_local_edusharing_webservice_upgrade($oldversion) {
     $helper = new InstallUpgradeHelper();
     if ($oldversion < 2025080800) {
         set_config('allowframembedding', 1);
-        set_config('format_singleactivity', 'scorm', 'activitytype');
+        set_config('activitytype', 'scorm', 'format_singleactivity');
 
         try {
             $helper->update_scorm_packages();
@@ -82,6 +82,33 @@ function xmldb_local_edusharing_webservice_upgrade($oldversion) {
         \core\task\manager::queue_adhoc_task(new ProvisionWebserviceTask(), true);
 
         upgrade_plugin_savepoint(true, 2026090600, 'local', 'edusharing_webservice');
+    }
+
+    if ($oldversion < 2026092100) {
+        // set_config()'s arguments were transposed, so the intended default landed
+        // under a bogus 'activitytype' plugin and format_singleactivity kept reading
+        // its own default ('forum'). Put the value where the format looks for it and
+        // drop the stray row.
+        set_config('activitytype', 'scorm', 'format_singleactivity');
+        unset_config('format_singleactivity', 'activitytype');
+
+        try {
+            // The restricted rendering role now needs mod/scorm:skipview so SCORM
+            // sends the learner straight into the player.
+            $helper->create_restricted_role();
+            // Repair courses generated while the activity type was wrong.
+            $helper->repair_singleactivity_scorm_courses();
+        } catch (Throwable $e) {
+            // Do not swallow: reaching the savepoint below after a failed step
+            // records it as done, so it can never be retried.
+            error_log(sprintf(
+                "local_edusharing_webservice upgrade failed: %s: %s\nFile: %s:%d\n\nStack trace:\n%s",
+                get_class($e), $e->getMessage(), $e->getFile(), $e->getLine(), $e->getTraceAsString()
+            ));
+            throw $e;
+        }
+
+        upgrade_plugin_savepoint(true, 2026092100, 'local', 'edusharing_webservice');
     }
 
     return true;

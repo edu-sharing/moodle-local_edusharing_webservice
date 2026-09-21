@@ -29,7 +29,9 @@ function xmldb_local_edusharing_webservice_install(){
     set_config('enablewebservices', 1);
     set_config('webserviceprotocols', 'rest');
     set_config('allowframembedding', 1);
-    set_config('format_singleactivity', 'scorm', 'activitytype');
+    // set_config() takes ($name, $value, $plugin): the activity type of the
+    // singleactivity format, not a setting named after the format.
+    set_config('activitytype', 'scorm', 'format_singleactivity');
 
     try {
         $helper->update_scorm_packages();

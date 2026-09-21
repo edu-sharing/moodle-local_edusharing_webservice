@@ -114,9 +114,22 @@ class InstallUpgradeHelper
             'mod/h5pactivity:view',
             'mod/hvp:view'
         ];
+        // Capabilities the rendering user needs but the standard user role does not
+        // grant, so they have to be allowed explicitly rather than merely left
+        // un-prohibited. mod/scorm:skipview lets mod/scorm/view.php send the user
+        // straight into the player instead of rendering its "Enter" page: without it
+        // a rendered SCORM costs the learner an extra click.
+        $allowlist = [
+            'mod/scorm:skipview',
+        ];
         foreach ($standardallowedcaps as $cap) {
-            if (!in_array($cap, $whitelist, true)) {
+            if (!in_array($cap, $whitelist, true) && !in_array($cap, $allowlist, true)) {
                 assign_capability($cap, CAP_PROHIBIT, $restrictedRoleId, $systemcontext, true);
+            }
+        }
+        foreach ($allowlist as $cap) {
+            if (get_capability_info($cap, false) !== null) {
+                assign_capability($cap, CAP_ALLOW, $restrictedRoleId, $systemcontext, true);
             }
         }
         // Drop prohibits left over from a previous version of the whitelist, so
@@ -132,6 +145,60 @@ class InstallUpgradeHelper
                 unassign_capability($cap, $restrictedRoleId, $systemcontext->id, false);
             }
         }
+    }
+
+    /**
+     * Point existing singleactivity courses at the SCORM package they contain.
+     *
+     * Courses generated while the format's activity type still fell back to its
+     * default have no main activity, so /course/view.php stops at the course page
+     * instead of redirecting into the SCORM and the learner has to click through.
+     *
+     * Only courses whose configured activity type is absent from the course are
+     * touched, so a course that is deliberately built around some other activity is
+     * never repointed.
+     *
+     * @return int number of courses repaired
+     * @throws dml_exception
+     */
+    public function repair_singleactivity_scorm_courses(): int {
+        global $CFG, $DB;
+        require_once $CFG->dirroot . '/course/lib.php';
+        $sql = "SELECT cfo.id, cfo.courseid, cfo.value
+                  FROM {course_format_options} cfo
+                  JOIN {course} c ON c.id = cfo.courseid
+                 WHERE c.format = 'singleactivity'
+                   AND cfo.format = 'singleactivity'
+                   AND cfo.sectionid = 0
+                   AND cfo.name = 'activitytype'
+                   AND cfo.value <> 'scorm'";
+        $repaired = 0;
+        foreach ($DB->get_records_sql($sql) as $option) {
+            $modnames = $this->get_course_modnames((int)$option->courseid);
+            if (!in_array('scorm', $modnames, true) || in_array($option->value, $modnames, true)) {
+                continue;
+            }
+            $DB->set_field('course_format_options', 'value', 'scorm', ['id' => $option->id]);
+            rebuild_course_cache((int)$option->courseid, true);
+            $repaired++;
+        }
+        return $repaired;
+    }
+
+    /**
+     * Names of the module types present in a course.
+     *
+     * @throws dml_exception
+     */
+    private function get_course_modnames(int $courseid): array {
+        global $DB;
+        return $DB->get_fieldset_sql(
+            "SELECT DISTINCT m.name
+               FROM {course_modules} cm
+               JOIN {modules} m ON m.id = cm.module
+              WHERE cm.course = :courseid AND cm.deletioninprogress = 0",
+            ['courseid' => $courseid]
+        );
     }
 
     /**
