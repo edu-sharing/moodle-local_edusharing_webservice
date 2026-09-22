@@ -210,10 +210,14 @@ class InstallUpgradeHelper
         $systemcontext = context_system::instance();
         $existing = $DB->get_record('role', ['shortname' => 'webserviceuser']);
         if ($existing !== false) {
-            return (int)$existing->id;
+            // Do not return early: an earlier run that died part way through the loop below
+            // leaves the role in place but missing every capability after the failure, and
+            // returning here would make that state permanent. Re-assigning is idempotent.
+            $id = (int)$existing->id;
+        } else {
+            $id = create_role('Webservice User', 'webserviceuser', 'This role is used for the webservice user');
+            set_role_contextlevels($id, [CONTEXT_SYSTEM]);
         }
-        $id = create_role('Webservice User', 'webserviceuser', 'This role is used for the webservice user');
-        set_role_contextlevels($id, [CONTEXT_SYSTEM]);
         $caps = [
             'moodle/restore:createuser',
             'contenttype/h5p:upload',
@@ -231,7 +235,6 @@ class InstallUpgradeHelper
             'moodle/restore:userinfo',
             'moodle/restore:viewautomatedfilearea',
             'webservice/rest:use',
-            'atto/h5p:addembed',
             'mod/h5pactivity:reviewattempts',
             'mod/h5pactivity:submit',
             'mod/h5pactivity:view',
@@ -242,6 +245,14 @@ class InstallUpgradeHelper
             'moodle/webservice:createtoken'
         ];
         foreach ($caps as $cap) {
+            // Capabilities disappear when core drops a plugin (Atto in Moodle 5.0, for
+            // instance). assign_capability() throws a coding_exception on an unknown one,
+            // which would abort provisioning and leave the role half built, so skip it.
+            if (get_capability_info($cap, false) === null) {
+                debugging("Skipping unknown capability '$cap' for the edu-sharing web service role",
+                    DEBUG_DEVELOPER);
+                continue;
+            }
             assign_capability($cap, CAP_ALLOW, $id, $systemcontext, true);
         }
         return $id;
