@@ -111,5 +111,23 @@ function xmldb_local_edusharing_webservice_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026092100, 'local', 'edusharing_webservice');
     }
 
+    if ($oldversion < 2026101200) {
+        try {
+            // The restricted rendering role now allows quiz and H5P, which were
+            // hidden from rendered courses.
+            $helper->create_restricted_role();
+        } catch (Throwable $e) {
+            // Do not swallow: reaching the savepoint below after a failed step
+            // records it as done, so it can never be retried.
+            error_log(sprintf(
+                "local_edusharing_webservice upgrade failed: %s: %s\nFile: %s:%d\n\nStack trace:\n%s",
+                get_class($e), $e->getMessage(), $e->getFile(), $e->getLine(), $e->getTraceAsString()
+            ));
+            throw $e;
+        }
+
+        upgrade_plugin_savepoint(true, 2026101200, 'local', 'edusharing_webservice');
+    }
+
     return true;
 }

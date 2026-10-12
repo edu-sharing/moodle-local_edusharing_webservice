@@ -110,17 +110,24 @@ class InstallUpgradeHelper
             'mod/lesson:view',
             'mod/label:view',
             'mod/choice:view',
-            'moodle/blog:view',
-            'mod/h5pactivity:view',
-            'mod/hvp:view'
+            'moodle/blog:view'
         ];
         // Capabilities the rendering user needs but the standard user role does not
         // grant, so they have to be allowed explicitly rather than merely left
         // un-prohibited. mod/scorm:skipview lets mod/scorm/view.php send the user
         // straight into the player instead of rendering its "Enter" page: without it
         // a rendered SCORM costs the learner an extra click.
+        // Quiz and H5P grant their view capability to the student archetype only.
+        // Course pages hide an activity entirely from a user lacking mod/<type>:view,
+        // so without these a rendered course shows the section but not its quiz or H5P.
         $allowlist = [
             'mod/scorm:skipview',
+            'mod/quiz:view',
+            'mod/quiz:attempt',
+            'mod/quiz:reviewmyattempts',
+            'mod/h5pactivity:view',
+            'mod/h5pactivity:submit',
+            'mod/hvp:view',
         ];
         foreach ($standardallowedcaps as $cap) {
             if (!in_array($cap, $whitelist, true) && !in_array($cap, $allowlist, true)) {

@@ -59,13 +59,46 @@ class UserService {
         $user = $DB->get_record(table: "user", conditions: ["username" => $userData->username]);
         if(empty($user)) {
             $user = create_user_record($userData->username, uniqid());
-            $user->firstname = $userData->firstname;
-            $user->lastname = $userData->lastname;
-            $user->email = $userData->email;
-            $DB->update_record(table: 'user', dataobject: $user);
             role_assign(roleid: $this->restrictedroleid, userid: $user->id, contextid: context_system::instance()->id);
         }
+        $this->fill_missing_profile_fields(user: $user, userData: $userData);
         return (int)$user->id;
+    }
+
+    /**
+     * Fills an empty firstname, lastname or email, falling back to placeholders
+     * when the repository does not provide a value either.
+     *
+     * require_login() sends a user with any of these fields empty to /user/edit.php,
+     * and the restricted role prohibits moodle/user:editownprofile, so the user is
+     * stuck on "cannotedityourprofile" instead of seeing the course. The repository
+     * sends empty names for accounts that have none, e.g. SSO users whose IdP does
+     * not release them. Runs for existing users as well, so accounts created before
+     * this check are repaired on their next visit. Fields already set are kept.
+     *
+     * @throws dml_exception
+     */
+    private function fill_missing_profile_fields(stdClass $user, UserDataDTO $userData): void {
+        global $DB;
+        $fields = [
+            'firstname' => [$userData->firstname, $userData->username],
+            'lastname' => [$userData->lastname, 'edu-sharing'],
+            'email' => [$userData->email, 'user' . $user->id . '@edu-sharing.invalid'],
+        ];
+        $update = new stdClass();
+        foreach ($fields as $field => [$value, $fallback]) {
+            // Moodle tests these with empty(), so "0" counts as missing as well.
+            if (!empty($user->$field)) {
+                continue;
+            }
+            $value = trim($value);
+            $update->$field = empty($value) ? $fallback : $value;
+        }
+        if (empty((array)$update)) {
+            return;
+        }
+        $update->id = $user->id;
+        $DB->update_record(table: 'user', dataobject: $update);
     }
 
     /**
