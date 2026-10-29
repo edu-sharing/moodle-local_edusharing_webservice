@@ -47,6 +47,8 @@ function xmldb_local_edusharing_webservice_install(){
     // Role and user provisioning cannot run inside install/upgrade; see
     // ProvisionWebserviceTask. Queue it for the next cron run instead.
     \core\task\manager::queue_adhoc_task(new ProvisionWebserviceTask(), true);
+    // Web cron must not wait for that task: it is how the task gets to run.
+    $helper->enable_web_cron();
 
     return true;
 }

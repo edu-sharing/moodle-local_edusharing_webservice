@@ -269,7 +269,7 @@ class InstallUpgradeHelper
      * @throws Exception
      */
     public function create_webservice_user(int $roleId): void {
-        global $CFG, $DB;
+        global $DB;
         if (empty(getenv('EDUSHARING_RENDER_DOCKER_DEPLOYMENT'))) {
             return;
         }
@@ -302,10 +302,28 @@ class InstallUpgradeHelper
             role_assign($roleId, $userId, $systemcontextid);
         }
 
-        // The rendering service triggers Moodle cron over the web
-        // (/admin/cron.php?password=...). Set the remote cron password to the web
-        // service password and lift the CLI-only restriction if it is enabled, so
-        // those requests are accepted.
+        $this->enable_web_cron();
+    }
+
+    /**
+     * Lets the rendering service run cron over the web.
+     *
+     * The rendering service triggers Moodle cron over the web
+     * (/admin/cron.php?password=...). Set the remote cron password to the web
+     * service password and lift the CLI-only restriction if it is enabled, so
+     * those requests are accepted.
+     *
+     * Install and upgrade call this directly instead of leaving it to
+     * ProvisionWebserviceTask: that task only runs on cron, and without a CLI
+     * cron runner the web cron calls it would allow are the only cron there is.
+     *
+     * @throws dml_exception
+     */
+    public function enable_web_cron(): void {
+        global $CFG;
+        if (empty(getenv('EDUSHARING_RENDER_DOCKER_DEPLOYMENT')) || empty(getenv('EDUSHARING_WEBSERVICE_PASSWORD'))) {
+            return;
+        }
         set_config('cronremotepassword', getenv('EDUSHARING_WEBSERVICE_PASSWORD'));
         if (!empty($CFG->cronclionly)) {
             set_config('cronclionly', 0);

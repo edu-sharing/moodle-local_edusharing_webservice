@@ -129,5 +129,14 @@ function xmldb_local_edusharing_webservice_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026101200, 'local', 'edusharing_webservice');
     }
 
+    if ($oldversion < 2026102901) {
+        // Web cron used to be enabled only by ProvisionWebserviceTask, which itself
+        // waits for cron, so sites without a CLI cron runner refused the rendering
+        // service's web cron calls and never provisioned the web service user.
+        $helper->enable_web_cron();
+
+        upgrade_plugin_savepoint(true, 2026102901, 'local', 'edusharing_webservice');
+    }
+
     return true;
 }
