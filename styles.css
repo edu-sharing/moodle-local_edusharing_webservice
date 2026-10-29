@@ -4,35 +4,34 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-/*
-#page-navbar, #page-footer, #nav-message-popover-container, #nav-notification-popover-container, nav.fixed-top, #page-header {
-	display:none !important;
-}
-	
-[data-key="participants"], [data-key="badgesview"],  [data-key="competencies"],  [data-key="grades"],  [data-key="myhome"],  [data-key="home"],  [data-key="calendar"],  [data-key="privatefiles"],  [data-key="mycourses"], [data-parent-key="mycourses"] {
+/* Only applied with the hidenavigation setting, which adds the body class (see local\hook_callbacks). */
+body.local-edusharing-webservice-hidenavigation :is(#page-navbar, #page-footer, #nav-message-popover-container, #nav-notification-popover-container, nav.fixed-top, #page-header) {
 	display:none !important;
 }
 
-#nav-drawer {
+body.local-edusharing-webservice-hidenavigation :is([data-key="participants"], [data-key="badgesview"],  [data-key="competencies"],  [data-key="grades"],  [data-key="myhome"],  [data-key="home"],  [data-key="calendar"],  [data-key="privatefiles"],  [data-key="mycourses"], [data-parent-key="mycourses"]) {
+	display:none !important;
+}
+
+body.local-edusharing-webservice-hidenavigation #nav-drawer {
 	display: none !important;
 }
-body.drawer-open-left {
+body.local-edusharing-webservice-hidenavigation.drawer-open-left {
 	margin-left: 0 !important;
 }
 
-#page {
+body.local-edusharing-webservice-hidenavigation #page {
 	margin-top: 0 !important;
 }
 
-#page-wrapper::after {
+body.local-edusharing-webservice-hidenavigation #page-wrapper::after {
 	min-height: 0 !important
 }
 
-[data-region="drawer"] {
+body.local-edusharing-webservice-hidenavigation [data-region="drawer"] {
 	height: 100% !important;
 }
 
-div.card {
+body.local-edusharing-webservice-hidenavigation div.card {
 	border: 0;
 }
-*/

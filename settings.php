@@ -37,4 +37,11 @@ if ($hassiteconfig) {
         get_string('restoretimeout_desc', 'local_edusharing_webservice'),
         30 * MINSECS
     ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_edusharing_webservice/hidenavigation',
+        get_string('hidenavigation', 'local_edusharing_webservice'),
+        get_string('hidenavigation_desc', 'local_edusharing_webservice'),
+        0
+    ));
 }

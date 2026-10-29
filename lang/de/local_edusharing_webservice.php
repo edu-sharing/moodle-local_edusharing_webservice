@@ -29,3 +29,5 @@ $string['edusharing_webservice:manageusers'] = 'Manage edu-sharing users';
 $string['edusharing_webservice:use'] = 'Use edu-sharing webservice';
 $string['error_missing_plugins'] = 'Fehlende Moodle-Plugins: ';
 $string['error_unable_to_enrol'] = 'Der Nutzer konnte nicht in den Kurs eingeschrieben werden.';
+$string['hidenavigation'] = 'Moodle-Navigation ausblenden';
+$string['hidenavigation_desc'] = 'Blendet auf allen Seiten und für alle Nutzer Kopfzeile, Fußzeile, Navigationsleiste und Navigationslinks wie Kalender, Bewertungen oder Meine Dateien aus. Aktivieren, wenn dieses Moodle nur Kurse für edu-sharing rendert. Die Website-Administration ist dann nur noch per URL erreichbar, z. B. /admin/.';

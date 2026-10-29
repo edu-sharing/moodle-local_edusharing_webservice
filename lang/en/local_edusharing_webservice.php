@@ -32,3 +32,5 @@ $string['error_invalid_restore_data'] = 'The restore request was incomplete (a c
 $string['restoretimeout'] = 'Restore staleness timeout';
 $string['restoretimeout_desc'] = 'If an in-progress restore (queued, running, or failed) has not been updated within this period, the next restore request for the same node abandons it and queues a fresh restore job.';
 $string['error_unable_to_enrol'] = 'The user could not be enrolled in the course.';
+$string['hidenavigation'] = 'Hide Moodle navigation';
+$string['hidenavigation_desc'] = 'Hides the header, footer, navigation drawer and navigation links like calendar, grades or private files on every page, for all users. Enable this when this Moodle only renders courses for edu-sharing. Site administration then has to be opened by URL, e.g. /admin/.';
