@@ -143,7 +143,17 @@ class local_edusharing_webservice_external extends external_api {
         $controller = new restore_controller($folder, $courseid,
             backup::INTERACTIVE_NO, backup::MODE_GENERAL, $userdoingrestore,
             backup::TARGET_NEW_COURSE);
-        $controller->execute_precheck();
+        // A failed precheck leaves the controller in STATUS_NEED_PRECHECK, so
+        // execute_plan() would only report the opaque
+        // restore_not_executable_awaiting_required. Surface the real reason instead.
+        if (!$controller->execute_precheck()) {
+            $results = $controller->get_precheck_results();
+            if (!empty($results['errors'])) {
+                $controller->destroy();
+                throw new RuntimeException('Restore precheck failed: ' . json_encode($results));
+            }
+            error_log('Restore precheck warnings: ' . json_encode($results['warnings'] ?? []));
+        }
         $controller->execute_plan();
 
         // Commit.
@@ -316,11 +326,7 @@ class local_edusharing_webservice_external extends external_api {
         $scorm_module_id = $DB->get_field('modules', 'id', ['name' => 'scorm']);
 
         $timestamp = round(microtime(true) * 1000);
-        $signData = $nodeId . $timestamp;
-        $pkeyid = openssl_get_privatekey(get_config('edusharing', 'application_private_key'));
-        openssl_sign($signData, $signature, $pkeyid);
-        $signature = urlencode(base64_encode($signature));
-        openssl_free_key($pkeyid);
+        $signature = urlencode($service->sign($nodeId . $timestamp));
 
         $utils = new UtilityFunctions();
 
@@ -329,6 +335,7 @@ class local_edusharing_webservice_external extends external_api {
         $contentUrl .= '&nodeId=' . $nodeId;
         $contentUrl .= '&timeStamp=' . $timestamp;
         $contentUrl .= '&authToken=' . $signature;
+        $contentUrl .= '&signedAlg=' . urlencode($service->get_signing_algorithm());
 
         $scormdata = new stdClass();
         $scormdata->scormtype = SCORM_TYPE_LOCALSYNC;
@@ -449,11 +456,7 @@ class local_edusharing_webservice_external extends external_api {
 
         try {
             $timestamp = round(microtime(true) * 1000);
-            $signData = $nodeId . $timestamp;
-            $pkeyid = openssl_get_privatekey(get_config('edusharing', 'application_private_key'));
-            openssl_sign($signData, $signature, $pkeyid);
-            $signature = urlencode(base64_encode($signature));
-            openssl_free_key($pkeyid);
+            $signature = urlencode($service->sign($nodeId . $timestamp));
 
             $utils = new UtilityFunctions();
 
@@ -462,6 +465,7 @@ class local_edusharing_webservice_external extends external_api {
             $contentUrl .= '&nodeId=' . $nodeId;
             $contentUrl .= '&timeStamp=' . $timestamp;
             $contentUrl .= '&authToken=' . $signature;
+            $contentUrl .= '&signedAlg=' . urlencode($service->get_signing_algorithm());
 
 
 	        $opts= ["ssl" => ["verify_peer" =>false, "verify_peer_name" =>false]];
