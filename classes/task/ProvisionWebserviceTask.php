@@ -18,6 +18,9 @@ use Throwable;
  * no longer active, and Moodle retries it with backoff if it fails instead of
  * the failure being swallowed and recorded as success.
  *
+ * Custom data {deleteusers: false} skips deleting the site's accounts first; see
+ * InstallUpgradeHelper::queue_provisioning_if_user_missing().
+ *
  * @package   local_edusharing_webservice
  * @copyright metaventis 2026 <integrations@edu-sharing.net>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -30,7 +33,9 @@ class ProvisionWebserviceTask extends adhoc_task {
     public function execute(): void {
         $helper = new InstallUpgradeHelper();
         try {
-            $helper->delete_users();
+            if ($this->get_custom_data()->deleteusers ?? true) {
+                $helper->delete_users();
+            }
             $roleId = $helper->create_webservice_role();
             $helper->create_webservice_user($roleId);
         } catch (Throwable $exception) {

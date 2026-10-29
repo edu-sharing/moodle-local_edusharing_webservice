@@ -138,5 +138,8 @@ function xmldb_local_edusharing_webservice_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026102901, 'local', 'edusharing_webservice');
     }
 
+    // Not a version step: on every upgrade, provision the web service user again if it is missing.
+    $helper->queue_provisioning_if_user_missing();
+
     return true;
 }

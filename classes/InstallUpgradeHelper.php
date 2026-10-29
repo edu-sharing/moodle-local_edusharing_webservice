@@ -10,6 +10,7 @@ use coding_exception;
 use context_system;
 use dml_exception;
 use Exception;
+use local_edusharing_webservice\task\ProvisionWebserviceTask;
 
 require_once $CFG->dirroot."/user/lib.php";
 require_once $CFG->dirroot."/admin/lib.php";
@@ -328,5 +329,40 @@ class InstallUpgradeHelper
         if (!empty($CFG->cronclionly)) {
             set_config('cronclionly', 0);
         }
+    }
+
+    /**
+     * Queues provisioning again if the web service user is missing.
+     *
+     * Called on every upgrade. The provisioning queued on install gives up once
+     * Moodle's adhoc task attempts are used up (e.g. while the password fails the
+     * password policy), and nothing else would create the user afterwards.
+     *
+     * The queued task leaves the site's accounts alone: unlike on install, an
+     * upgrade must not wipe them. Skipped while a provisioning task can still run.
+     * queue_adhoc_task()'s duplicate check cannot do that, it also matches tasks
+     * that have run out of attempts, which Moodle keeps for a while.
+     *
+     * @throws dml_exception
+     */
+    public function queue_provisioning_if_user_missing(): void {
+        global $DB;
+        if (empty(getenv('EDUSHARING_RENDER_DOCKER_DEPLOYMENT')) || empty(getenv('EDUSHARING_WEBSERVICE_USER'))) {
+            return;
+        }
+        $username = (string)getenv('EDUSHARING_WEBSERVICE_USER');
+        if ($DB->record_exists('user', ['username' => $username, 'mnethostid' => 1, 'deleted' => 0])) {
+            return;
+        }
+        if ($DB->record_exists_select(
+            'task_adhoc',
+            'classname = ? AND (attemptsavailable > 0 OR attemptsavailable IS NULL)',
+            ['\\' . ProvisionWebserviceTask::class]
+        )) {
+            return;
+        }
+        $task = new ProvisionWebserviceTask();
+        $task->set_custom_data(['deleteusers' => false]);
+        \core\task\manager::queue_adhoc_task($task);
     }
 }
