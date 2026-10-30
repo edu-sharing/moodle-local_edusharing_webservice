@@ -32,12 +32,15 @@ class InstallUpgradeHelper
      * never recreates them (tokens are issued out of band), so deleting a token
      * holder silently severs the repository's connection to this Moodle.
      *
+     * Only ProvisionWebserviceTask calls this, so it traces to the cron log.
+     *
      * @throws coding_exception
      * @throws dml_exception
      */
     public function delete_users(): void {
         global $DB;
         if (empty(getenv('EDUSHARING_RENDER_DOCKER_DEPLOYMENT'))) {
+            mtrace('... not a rendering deployment, no user accounts deleted');
             return;
         }
         $protectedids = array_map(
@@ -46,6 +49,7 @@ class InstallUpgradeHelper
         );
         $serviceusername = (string)getenv('EDUSHARING_WEBSERVICE_USER');
         $users = $DB->get_records('user', ['deleted' => 0]);
+        $deleted = 0;
 
         foreach ($users as $user) {
             if (is_siteadmin($user) || isguestuser($user)) {
@@ -57,8 +61,17 @@ class InstallUpgradeHelper
             if ($serviceusername !== '' && $user->username === $serviceusername) {
                 continue;
             }
-            delete_user($user);
+            try {
+                if (delete_user($user)) {
+                    $deleted++;
+                }
+            } catch (\Throwable $e) {
+                // Name the account: delete_user() reaches deep into other
+                // components, and their exceptions do not say whose data it was.
+                throw new Exception("Deleting user id $user->id failed: " . $e->getMessage(), 0, $e);
+            }
         }
+        mtrace(sprintf('... deleted %d of %d user accounts', $deleted, count($users)));
     }
 
     /**
@@ -210,6 +223,8 @@ class InstallUpgradeHelper
     }
 
     /**
+     * Only ProvisionWebserviceTask calls this, so it traces to the cron log.
+     *
      * @throws dml_exception
      * @throws coding_exception
      */
@@ -222,9 +237,11 @@ class InstallUpgradeHelper
             // leaves the role in place but missing every capability after the failure, and
             // returning here would make that state permanent. Re-assigning is idempotent.
             $id = (int)$existing->id;
+            mtrace("... web service role exists, id $id");
         } else {
             $id = create_role('Webservice User', 'webserviceuser', 'This role is used for the webservice user');
             set_role_contextlevels($id, [CONTEXT_SYSTEM]);
+            mtrace("... web service role created, id $id");
         }
         $caps = [
             'moodle/restore:createuser',
@@ -256,9 +273,11 @@ class InstallUpgradeHelper
             // Capabilities disappear when core drops a plugin (Atto in Moodle 5.0, for
             // instance). assign_capability() throws a coding_exception on an unknown one,
             // which would abort provisioning and leave the role half built, so skip it.
+            // Not with debugging(): a missing capability later surfaces as a
+            // permission error in the repository, so it has to show without
+            // developer debugging too.
             if (get_capability_info($cap, false) === null) {
-                debugging("Skipping unknown capability '$cap' for the edu-sharing web service role",
-                    DEBUG_DEVELOPER);
+                mtrace("... skipping unknown capability '$cap' for the web service role");
                 continue;
             }
             assign_capability($cap, CAP_ALLOW, $id, $systemcontext, true);
@@ -267,15 +286,23 @@ class InstallUpgradeHelper
     }
 
     /**
+     * Only ProvisionWebserviceTask calls this, so it traces to the cron log.
+     *
      * @throws Exception
      */
     public function create_webservice_user(int $roleId): void {
         global $DB;
         if (empty(getenv('EDUSHARING_RENDER_DOCKER_DEPLOYMENT'))) {
+            mtrace('... not a rendering deployment, no web service user created');
             return;
         }
-        if (empty(getenv('EDUSHARING_WEBSERVICE_USER')) || empty(getenv('EDUSHARING_WEBSERVICE_PASSWORD'))) {
-            throw new Exception('Edu-Sharing web service user can not be created, credentials not set');
+        $missing = array_filter(
+            ['EDUSHARING_WEBSERVICE_USER', 'EDUSHARING_WEBSERVICE_PASSWORD'],
+            fn($name) => empty(getenv($name))
+        );
+        if ($missing !== []) {
+            throw new Exception('Edu-Sharing web service user can not be created, credentials not set: '
+                . implode(', ', $missing) . ' empty or missing in the environment');
         }
         // Idempotent: this runs from an adhoc task, which Moodle retries on
         // failure, so a second pass must not create a duplicate account.
@@ -283,6 +310,7 @@ class InstallUpgradeHelper
         $existing = $DB->get_record('user', ['username' => $username, 'mnethostid' => 1, 'deleted' => 0]);
         if ($existing !== false) {
             $userId = (int)$existing->id;
+            mtrace("... web service user '$username' exists, id $userId");
         } else {
             $userArray = [
                 'createpassword' => false,
@@ -295,12 +323,14 @@ class InstallUpgradeHelper
                 'mnethostid' => 1
             ];
             $userId = user_create_user($userArray);
+            mtrace("... web service user '$username' created, id $userId");
         }
         $systemcontextid = context_system::instance()->id;
         if (!$DB->record_exists('role_assignments', [
             'roleid' => $roleId, 'userid' => $userId, 'contextid' => $systemcontextid,
         ])) {
             role_assign($roleId, $userId, $systemcontextid);
+            mtrace("... web service role assigned to user id $userId");
         }
 
         $this->enable_web_cron();
