@@ -30,22 +30,28 @@ class ScormRestorationService extends RenderMoodleService {
     private int $categoryid;
     private string $title;
     private string $nodeid;
+    private string $hash;
     private ?object $course = null;
 
-    public function __construct(int $categoryid, string $title, string $nodeid) {
+    /**
+     * @param string $hash The content hash of the node version; empty for callers that predate
+     *                     course versioning (the course is then keyed by the bare node id).
+     */
+    public function __construct(int $categoryid, string $title, string $nodeid, string $hash = '') {
         parent::__construct();
         $this->categoryid = $categoryid;
         $this->title = $title;
         $this->nodeid = $nodeid;
+        $this->hash = $hash;
     }
 
     /**
      * @throws moodle_exception
      */
     public function scorm(): int {
-        $existing_course_id = $this->get_existing_course_id($this->nodeid);
-        if ($existing_course_id !== null) {
-            return $existing_course_id;
+        $existing_course = $this->find_course(nodeid: $this->nodeid, hash: $this->hash);
+        if ($existing_course !== null) {
+            return (int) $existing_course->id;
         }
         try {
             $this->create_course();
@@ -92,7 +98,7 @@ class ScormRestorationService extends RenderMoodleService {
         $data->shortname = $this->title . '_' . $unique;
         $data->format= 'singleactivity';
         $data->activitytype = 'scorm';
-        $data->idnumber = $this->nodeid;
+        $data->idnumber = self::course_idnumber($this->nodeid, $this->hash);
         $this->course = create_course($data);
         $this->force_activity_type($data->activitytype);
     }

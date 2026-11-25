@@ -37,6 +37,7 @@ use restore_dbops;
 use restore_moodlexml_parser_processor;
 use RuntimeException;
 use stdClass;
+use xmldb_table;
 use ZipArchive;
 
 /**
@@ -67,14 +68,16 @@ class CourseRestorationService extends RenderMoodleService {
      * @param string $nodeId The unique identifier of the course node.
      * @param string $title The title of the course.
      * @param int $category The category ID of the course.
+     * @param string $hash The content hash of the node version; empty for callers that predate
+     *                     course versioning (the course is then keyed by the bare node id).
      *
      * @throws Exception
      * @throws dml_exception
      */
-    public function course(string $nodeId, string $title, int $category): RestoreCourseDTO {
+    public function course(string $nodeId, string $title, int $category, string $hash = ''): RestoreCourseDTO {
         global $DB;
-        $existingCourse = $DB->get_record(table: 'course', conditions: ['idnumber' => $nodeId]);
-        if ($existingCourse !== false) {
+        $existingCourse = $this->find_course(nodeid: $nodeId, hash: $hash);
+        if ($existingCourse !== null) {
             if ($existingCourse->fullname !== $title || $existingCourse->shortname !== $title) {
                 $DB->update_record(table: 'course', dataobject: [
                     'id'        => $existingCourse->id,
@@ -84,12 +87,23 @@ class CourseRestorationService extends RenderMoodleService {
             }
             return new RestoreCourseDTO(courseId: (int)$existingCourse->id, restoreId: null);
         }
-        $restore = $DB->get_record(table: 'edu_restore', conditions: ['nodeid' => $nodeId]);
-        if ($restore !== false && !$this->isRestoreStale($restore)) {
+        $restore = $this->getRestoreRecord(nodeId: $nodeId, hash: $hash);
+        if ($restore !== null && !$this->isRestoreStale($restore)) {
             return new RestoreCourseDTO(courseId: null, restoreId: (int)$restore->id);
         }
+        if ($restore === null && $hash !== '') {
+            // A restore queued before the switch to versioned courses may still be running.
+            // Hand out its restoreId instead of importing the node a second time: its course
+            // is stored under the bare node id and adopted by find_course() on the next call.
+            $legacyRestore = $this->getRestoreRecord(nodeId: $nodeId, hash: '');
+            if ($legacyRestore !== null
+                    && in_array($legacyRestore->status, [RestoreStatus::QUEUED, RestoreStatus::RUNNING], true)
+                    && !$this->isRestoreStale($legacyRestore)) {
+                return new RestoreCourseDTO(courseId: null, restoreId: (int)$legacyRestore->id);
+            }
+        }
 
-        if ($restore !== false) {
+        if ($restore !== null) {
             // Stale restore (crashed, hung, or never picked up): reset the existing
             // record and re-queue against the same restoreId so callers polling the
             // status keep their handle.
@@ -105,6 +119,7 @@ class CourseRestorationService extends RenderMoodleService {
         } else {
             $restoreId = $DB->insert_record(table: 'edu_restore', dataobject: [
                 'nodeid'       => $nodeId,
+                'hash'         => $hash,
                 'status'       => RestoreStatus::QUEUED,
                 'lastmodified' => time(),
             ]);
@@ -124,18 +139,39 @@ class CourseRestorationService extends RenderMoodleService {
     }
 
     /**
+     * The newest restore record of a node version. Records written before course versioning
+     * carry an empty hash, just like the records of callers that send no hash.
+     *
+     * @throws dml_exception
+     */
+    private function getRestoreRecord(string $nodeId, string $hash): ?stdClass {
+        global $DB;
+        $records = $DB->get_records(
+            table: 'edu_restore',
+            conditions: ['nodeid' => $nodeId, 'hash' => $hash],
+            sort: 'id DESC',
+            limitfrom: 0,
+            limitnum: 1
+        );
+        return reset($records) ?: null;
+    }
+
+    /**
      * Decide whether an existing restore record should be re-forced.
      *
      * A failed restore is re-forced immediately so a retry can start right away.
      * A queued/running restore is only re-forced once it has not been updated within
      * the configured timeout (its task most likely crashed, hung, or was never picked
-     * up by cron). A successful restore is never re-forced.
+     * up by cron). A successful restore is only re-forced once its course is gone
+     * (deleted in Moodle); otherwise the caller would be handed a deleted course forever.
      *
      * @throws dml_exception
      */
     private function isRestoreStale(stdClass $restore): bool {
+        global $DB;
         if ($restore->status === RestoreStatus::SUCCESS) {
-            return false;
+            return empty($restore->courseid)
+                || !$DB->record_exists(table: 'course', conditions: ['id' => $restore->courseid]);
         }
         if ($restore->status === RestoreStatus::FAILURE) {
             // A failed restore can be retried immediately; no need to wait for the timeout.
@@ -203,9 +239,17 @@ class CourseRestorationService extends RenderMoodleService {
             userid: $this->getAdminId(),
             target: $target
         );
-        $precheckok = $controller->execute_precheck();
-        if (!$precheckok) {
-            throw new RuntimeException('Restore precheck failed: ' . json_encode($controller->get_precheck_results()));
+        try {
+            if (!$controller->execute_precheck()) {
+                throw new RuntimeException('Restore precheck failed: ' . json_encode($controller->get_precheck_results()));
+            }
+        } catch (Exception $exception) {
+            // The controller is stored as "needs precheck", which delete_course() takes for a restore
+            // still pending: it would silently refuse to delete the empty target course in rollback().
+            // Close it as failed, as core's asynchronous_restore_task does.
+            $controller->set_status(backup::STATUS_FINISHED_ERR);
+            $controller->destroy();
+            throw $exception;
         }
         return $controller;
     }
@@ -571,9 +615,14 @@ class CourseRestorationService extends RenderMoodleService {
     /**
      * @throws dml_exception
      */
-    public function finalizeCourse(int $courseId, string $nodeId, string $title): void {
+    public function finalizeCourse(int $courseId, string $nodeId, string $title, string $hash = ''): void {
         global $DB;
-        $updCourse = ['id' => $courseId, 'fullname' => $title, 'shortname' => $title, 'idnumber' => $nodeId];
+        $updCourse = [
+            'id'        => $courseId,
+            'fullname'  => $title,
+            'shortname' => $title,
+            'idnumber'  => self::course_idnumber($nodeId, $hash),
+        ];
         $DB->update_record(table: 'course', dataobject: $updCourse);
 
         //activity backups do not set enrolement method on restore, so do this manually
@@ -608,13 +657,38 @@ class CourseRestorationService extends RenderMoodleService {
 
     public function rollback(): void {
         $this->cleanup();
+        $this->dropRestoreTempTables();
         if ($this->courseId !== null) {
             try {
-                $course = $this->courseId;
-                delete_course($course, false);
-            } catch (Exception) {
-                mtrace('Course not found');
+                // delete_course() returns false instead of throwing, e.g. while a restore into the
+                // course is still pending - say so, or the empty course is left behind unnoticed.
+                if (!delete_course($this->courseId, false)) {
+                    mtrace('Could not delete course ' . $this->courseId . ' of the failed restore');
+                }
+            } catch (Exception $exception) {
+                mtrace('Could not delete course ' . $this->courseId . ' of the failed restore: ' . $exception->getMessage());
             }
+        }
+    }
+
+    /**
+     * A restore that fails half-way leaves its temp tables behind. They are temporary tables of this
+     * DB connection, which a cron worker keeps for its next task - whose restore would then fail with
+     * "Table backup_files_temp already exists".
+     */
+    private function dropRestoreTempTables(): void {
+        global $DB;
+        try {
+            $dbman = $DB->get_manager();
+            foreach (['backup_ids_temp', 'backup_files_temp'] as $name) {
+                $table = new xmldb_table($name);
+                if ($dbman->table_exists($table)) {
+                    $dbman->drop_table($table);
+                }
+            }
+            restore_dbops::reset_backup_ids_cached();
+        } catch (Exception $exception) {
+            mtrace('Could not drop the restore temp tables: ' . $exception->getMessage());
         }
     }
 

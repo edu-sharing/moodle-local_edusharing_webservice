@@ -50,6 +50,15 @@ class Course extends external_api {
                 required: VALUE_DEFAULT,
                 default: 1
             ),
+            // Must stay the last parameter: Moodle passes the values to execute() by position.
+            // Never reject a hash for its content - the rendering service reads an
+            // "invalidparameter" answer as "plugin too old" and retries without the hash.
+            'hash' => new external_value(
+                type: PARAM_TEXT,
+                desc: 'Content hash of the node version; empty for unversioned (legacy) callers',
+                required: VALUE_DEFAULT,
+                default: ''
+            ),
         ]);
     }
 
@@ -74,19 +83,21 @@ class Course extends external_api {
      * @throws dml_exception
      * @throws invalid_parameter_exception
      */
-    public static function execute($nodeId, $title, $category): array {
+    public static function execute($nodeId, $title, $category, $hash = ''): array {
         $service = new CourseRestorationService();
 
         self::validate_parameters(self::execute_parameters(), [
             'nodeId' => $nodeId,
             'title' => $title,
-            'category' => $category
+            'category' => $category,
+            'hash' => $hash,
         ]);
 
         $result = $service->course(
             nodeId: $nodeId,
             title: $title,
-            category: $category
+            category: $category,
+            hash: (string)$hash
         );
         return [
             'courseId' => $result->courseId,

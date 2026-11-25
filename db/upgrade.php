@@ -138,6 +138,23 @@ function xmldb_local_edusharing_webservice_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026102901, 'local', 'edusharing_webservice');
     }
 
+    if ($oldversion < 2026112500) {
+        // Courses are versioned by the node's content hash ("<nodeId>_<hash>"). Restore
+        // records track the hash of the version they import; existing records get an empty
+        // hash, which marks them as unversioned.
+        $table = new xmldb_table('edu_restore');
+        $field = new xmldb_field('hash', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, null, 'lastmodified');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $index = new xmldb_index('nodeidhash', XMLDB_INDEX_NOTUNIQUE, ['nodeid', 'hash']);
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        upgrade_plugin_savepoint(true, 2026112500, 'local', 'edusharing_webservice');
+    }
+
     // Not a version step: on every upgrade, provision the web service user again if it is missing.
     $helper->queue_provisioning_if_user_missing();
 

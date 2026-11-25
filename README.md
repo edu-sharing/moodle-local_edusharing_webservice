@@ -78,6 +78,21 @@ For a complete example please refer to the [compose file](docker-compose.yml).
 
 Don't forget to set up the credentials (webservice username and password) in your rendering service.
 
+## Course versioning
+
+Since release 11.0.9, Rendering Service 2 sends the content hash of the node version along with the node id
+(`local_edusharing_restore_course`, `local_edusharing_scorm_course`). Each version gets its own course, stored
+with the idnumber `<nodeId>_<hash>`, so a new version of a node is imported again instead of showing the old course.
+
+- **No mass re-import:** a course restored before versioning (idnumber = bare node id) is adopted on the first
+  render with a hash: its idnumber gets the hash. That course may stem from an older version of the node.
+- **Upgrade order does not matter.** A rendering service without versioning sends no hash: the course is looked
+  up by the bare node id as before, and courses already adopted are found too. A versioning rendering service talking
+  to an older plugin retries without the hash.
+- Downgrading the plugin after courses were adopted imports each of them once more (the old lookup no longer
+  finds them).
+- Courses of older versions stay in Moodle; nothing removes them.
+
 ## Test
 If you used the manual installation you should already know your token. When using the Docker image you can obtain your token by using the login endpoint:
 

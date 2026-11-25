@@ -51,6 +51,15 @@ class Scorm extends external_api {
                 required: VALUE_DEFAULT,
                 default: 1
             ),
+            // Must stay the last parameter: Moodle passes the values to execute() by position.
+            // Never reject a hash for its content - the rendering service reads an
+            // "invalidparameter" answer as "plugin too old" and retries without the hash.
+            'hash' => new external_value(
+                type: PARAM_TEXT,
+                desc: 'Content hash of the node version; empty for unversioned (legacy) callers',
+                required: VALUE_DEFAULT,
+                default: ''
+            ),
         ]);
     }
 
@@ -69,17 +78,19 @@ class Scorm extends external_api {
      * @throws invalid_parameter_exception
      * @throws moodle_exception
      */
-    public static function execute(string $nodeId, string $title, int $category): array {
+    public static function execute(string $nodeId, string $title, int $category, string $hash = ''): array {
         self::validate_parameters(self::execute_parameters(), [
             'nodeId' => $nodeId,
             'title' => $title,
-            'category' => $category
+            'category' => $category,
+            'hash' => $hash,
         ]);
 
         $service = new ScormRestorationService(
             categoryid: $category,
             title: $title,
-            nodeid: $nodeId
+            nodeid: $nodeId,
+            hash: $hash
         );
 
         $result = $service->scorm();

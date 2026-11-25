@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/edusharing_webservice/db" VERSION="20260717" COMMENT="XMLDB file for Moodle local/edusharing_webservice"
+<XMLDB PATH="local/edusharing_webservice/db" VERSION="20261125" COMMENT="XMLDB file for Moodle local/edusharing_webservice"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -25,10 +25,14 @@
                 <FIELD NAME="usermessage" SEQUENCE="false" TYPE="text" NOTNULL="false"/>
                 <FIELD NAME="courseid" SEQUENCE="false" TYPE="int" LENGTH="10" NOTNULL="false"/>
                 <FIELD NAME="lastmodified" SEQUENCE="false" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+                <FIELD NAME="hash" SEQUENCE="false" TYPE="char" LENGTH="20" NOTNULL="true" COMMENT="Content hash of the restored node version; empty for restores without versioning"/>
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
             </KEYS>
+            <INDEXES>
+                <INDEX NAME="nodeidhash" UNIQUE="false" FIELDS="nodeid, hash"/>
+            </INDEXES>
         </TABLE>
     </TABLES>
 </XMLDB>

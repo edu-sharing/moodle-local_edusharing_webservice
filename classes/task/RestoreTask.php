@@ -2,11 +2,16 @@
 
 namespace local_edusharing_webservice\task;
 
+use async_helper;
+use backup;
+use core\progress\db_updater;
 use core\task\asynchronous_restore_task;
 use Exception;
 use local_edusharing_webservice\CourseRestorationService;
 use local_edusharing_webservice\RestoreStatus;
 use local_edusharing_webservice\UserException;
+use restore_controller;
+use RuntimeException;
 
 class RestoreTask extends asynchronous_restore_task {
     private CourseRestorationService $renderMoodleService;
@@ -67,13 +72,16 @@ class RestoreTask extends asynchronous_restore_task {
                 nodeId: $restore->nodeid,
                 category: $customData->category,
             );
-            // Overwrite custom data for further use in parent class
+            // Keep the backup id in the custom data, as core's asynchronous restore task has it.
             $this->set_custom_data(['backupid' => $controller->get_restoreid()]);
-            parent::execute();
+            $this->execute_restore($controller->get_restoreid());
             $this->renderMoodleService->finalizeCourse(
                 courseId: $controller->get_courseid(),
                 nodeId: $restore->nodeid,
-                title: $customData->title
+                title: $customData->title,
+                // Records queued before course versioning carry no hash; their course keeps
+                // the bare node id and is adopted on the next call with a hash.
+                hash: (string)($restore->hash ?? '')
             );
             $restore->status = RestoreStatus::SUCCESS;
             $restore->lastmodified = time();
@@ -100,6 +108,42 @@ class RestoreTask extends asynchronous_restore_task {
                 mtrace('Failed to update restore status due to DB error: ' . $e->getMessage());
             }
             $this->renderMoodleService->rollback();
+        }
+    }
+
+    /**
+     * Runs the prepared restore, like core's asynchronous_restore_task::execute(), but lets a failure
+     * reach the caller. Core catches it and marks the controller failed via set_status(), which saves
+     * the whole executed plan: its checksum recurses until the worker runs out of memory, so neither
+     * the edu_restore record nor the half-restored course would ever be dealt with.
+     *
+     * @throws Exception when the restore cannot run or does not finish
+     */
+    private function execute_restore(string $restoreid): void {
+        global $DB;
+        $record = $DB->get_record(table: 'backup_controllers', conditions: ['backupid' => $restoreid], fields: 'id', strictness: MUST_EXIST);
+        $rc = restore_controller::load_controller($restoreid);
+        try {
+            $rc->set_progress(new db_updater($record->id, 'backup_controllers', 'progress'));
+            if ($rc->get_status() != backup::STATUS_AWAITING || $rc->get_execution() != backup::EXECUTION_DELAYED) {
+                throw new RuntimeException('Bad restore controller status ' . $rc->get_status()
+                    . ', should be ' . backup::STATUS_AWAITING);
+            }
+            $rc->execute_plan();
+            if ($rc->get_status() != backup::STATUS_FINISHED_OK) {
+                throw new RuntimeException('Restore did not finish, controller status ' . $rc->get_status());
+            }
+            if ((bool)get_config('backup', 'backup_async_message_users')) {
+                (new async_helper('restore', $restoreid))->send_message();
+            }
+        } catch (Exception $exception) {
+            // Mark the controller failed in the table only (see above). It must not stay "executing":
+            // delete_course() would take that for a restore in progress and keep the course.
+            $DB->set_field(table: 'backup_controllers', newfield: 'status', newvalue: backup::STATUS_FINISHED_ERR,
+                conditions: ['backupid' => $restoreid]);
+            throw $exception;
+        } finally {
+            $rc->destroy();
         }
     }
 }
